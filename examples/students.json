@@ -1,0 +1,14 @@
+{
+  "students": [
+    {
+      "email": "alice@demo-university.test",
+      "name": "Алиса Демо",
+      "group_oids": ["1000", "1001"]
+    },
+    {
+      "email": "bob@demo-university.test",
+      "name": "Борис Демо",
+      "group_oids": ["1000", "1002"]
+    }
+  ]
+}

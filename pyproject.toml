@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mgimo-hack-schedule"
+version = "0.1.0"
+description = "Personal student schedules backed by HSE timetable data"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
+    "uvicorn>=0.30,<1",
+    "pywebpush>=2.0,<3",
+]
+
+[project.scripts]
+hse-schedule = "hse_schedule.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["hse_schedule*"]
+
+[tool.setuptools.package-data]
+hse_schedule = ["static/*"]

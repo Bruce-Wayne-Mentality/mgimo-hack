@@ -1,0 +1,237 @@
+{
+  "nodes": [
+    {
+      "id": "head",
+      "type": "text",
+      "text": "## 🧩 Карта системы\n\nСвязи показывают проектную зависимость, **не автоматический статус**.\n\n[[Разделы/07 — Архитектура и стек|Техническая архитектура]]",
+      "x": -350,
+      "y": -260,
+      "width": 360,
+      "height": 170,
+      "color": "5"
+    },
+    {
+      "id": "C1",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C1 — Вход и профиль.md",
+      "x": 0,
+      "y": 100,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "C2",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C2 — Расписание.md",
+      "x": 400,
+      "y": 0,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "C3",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C3 — Успеваемость.md",
+      "x": 400,
+      "y": 230,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "C4",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C4 — Заявки и справки.md",
+      "x": 400,
+      "y": 460,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "C5",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C5 — Уведомления.md",
+      "x": 800,
+      "y": 460,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "S1",
+      "type": "file",
+      "file": "01 — Разработка/Модули/S1 — Кабинет сотрудника.md",
+      "x": 800,
+      "y": 740,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "K1",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K1 — Светофор успеваемости.md",
+      "x": 800,
+      "y": 230,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "K2",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K2 — Трекер заявок и PDF с QR.md",
+      "x": 1200,
+      "y": 460,
+      "width": 300,
+      "height": 185,
+      "color": "4"
+    },
+    {
+      "id": "K4",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K4 — ИИ-ассистент GigaChat.md",
+      "x": 1200,
+      "y": 800,
+      "width": 300,
+      "height": 185,
+      "color": "3"
+    },
+    {
+      "id": "K5",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K5 — Проактивные подсказки.md",
+      "x": 1200,
+      "y": 230,
+      "width": 300,
+      "height": 185,
+      "color": "3"
+    },
+    {
+      "id": "K6",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K6 — Бронирование помещений.md",
+      "x": 800,
+      "y": 0,
+      "width": 300,
+      "height": 185,
+      "color": "3"
+    },
+    {
+      "id": "K7",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K7 — Красная кнопка.md",
+      "x": 1200,
+      "y": 1040,
+      "width": 300,
+      "height": 185,
+      "color": "3"
+    },
+    {
+      "id": "K8",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K8 — Умный календарь и ICS.md",
+      "x": 1200,
+      "y": 0,
+      "width": 300,
+      "height": 185,
+      "color": "3"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-0000",
+      "fromNode": "C1",
+      "toNode": "C2",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0001",
+      "fromNode": "C1",
+      "toNode": "C3",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0002",
+      "fromNode": "C1",
+      "toNode": "C4",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0003",
+      "fromNode": "C4",
+      "toNode": "S1",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0004",
+      "fromNode": "C4",
+      "toNode": "C5",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0005",
+      "fromNode": "C3",
+      "toNode": "K1",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0006",
+      "fromNode": "K1",
+      "toNode": "K5",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0007",
+      "fromNode": "C4",
+      "toNode": "K2",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0008",
+      "fromNode": "C5",
+      "toNode": "K5",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0009",
+      "fromNode": "C2",
+      "toNode": "K6",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0010",
+      "fromNode": "C2",
+      "toNode": "K8",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0011",
+      "fromNode": "C4",
+      "toNode": "K4",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0012",
+      "fromNode": "C4",
+      "toNode": "K7",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ]
+}

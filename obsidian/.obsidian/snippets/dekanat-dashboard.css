@@ -1,0 +1,4 @@
+.markdown-preview-view.dekanat-dashboard .callout[data-callout="info"] { border-radius: 12px; }
+.markdown-preview-view.dekanat-dashboard table { width: 100%; }
+.markdown-preview-view.dekanat-dashboard h2 { margin-top: 2.1rem; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 0.35rem; }
+.markdown-preview-view.dekanat-dashboard .task-list-item { margin-bottom: 0.4rem; }

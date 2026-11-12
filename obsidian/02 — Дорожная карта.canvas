@@ -1,0 +1,451 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "text",
+      "text": "## 🎓 Цифровой деканат\n\n7–23 ноября 2026 · команда A/B\n\n**План ≠ прогресс**\nВсе карточки без отметок выполнения.\n\n[[00 — ДАШБОРД]]",
+      "x": 0,
+      "y": -350,
+      "width": 410,
+      "height": 200,
+      "color": "5"
+    },
+    {
+      "id": "phase1",
+      "type": "text",
+      "text": "## Фаза 1 · Ядро\n\n8–13.11\n\n[[02 — Управление/02 — План по дням|План по дням]]",
+      "x": 500,
+      "y": -350,
+      "width": 395,
+      "height": 195,
+      "color": "4"
+    },
+    {
+      "id": "phase2",
+      "type": "text",
+      "text": "## Фаза 2 · Сквозной сценарий\n\n14–16.11\n\n[[02 — Управление/02 — План по дням|План по дням]]",
+      "x": 1020,
+      "y": -350,
+      "width": 395,
+      "height": 195,
+      "color": "4"
+    },
+    {
+      "id": "phase3",
+      "type": "text",
+      "text": "## Фаза 3 · Киллер-фичи\n\n17–18.11\n\n[[02 — Управление/02 — План по дням|План по дням]]",
+      "x": 1540,
+      "y": -350,
+      "width": 395,
+      "height": 195,
+      "color": "3"
+    },
+    {
+      "id": "phase4",
+      "type": "text",
+      "text": "## Фаза 4 · Полировка и сдача\n\n19–23.11\n\n[[02 — Управление/02 — План по дням|План по дням]]",
+      "x": 2060,
+      "y": -350,
+      "width": 395,
+      "height": 195,
+      "color": "2"
+    },
+    {
+      "id": "m-C1",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C1 — Вход и профиль.md",
+      "x": 500,
+      "y": 0,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-C2",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C2 — Расписание.md",
+      "x": 500,
+      "y": 230,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-C3",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C3 — Успеваемость.md",
+      "x": 500,
+      "y": 460,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-C4",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C4 — Заявки и справки.md",
+      "x": 500,
+      "y": 690,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-C5",
+      "type": "file",
+      "file": "01 — Разработка/Модули/C5 — Уведомления.md",
+      "x": 500,
+      "y": 920,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-S1",
+      "type": "file",
+      "file": "01 — Разработка/Модули/S1 — Кабинет сотрудника.md",
+      "x": 1020,
+      "y": 0,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-K1",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K1 — Светофор успеваемости.md",
+      "x": 1020,
+      "y": 230,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-K2",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K2 — Трекер заявок и PDF с QR.md",
+      "x": 1020,
+      "y": 460,
+      "width": 395,
+      "height": 200,
+      "color": "4"
+    },
+    {
+      "id": "m-K4",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K4 — ИИ-ассистент GigaChat.md",
+      "x": 1540,
+      "y": 0,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "m-K5",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K5 — Проактивные подсказки.md",
+      "x": 1540,
+      "y": 230,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "m-K6",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K6 — Бронирование помещений.md",
+      "x": 1540,
+      "y": 460,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "m-K7",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K7 — Красная кнопка.md",
+      "x": 1540,
+      "y": 690,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "m-K3",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K3 — Цифровой студенческий.md",
+      "x": 1540,
+      "y": 920,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "m-K8",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K8 — Умный календарь и ICS.md",
+      "x": 1540,
+      "y": 1150,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "m-K9",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K9 — Жизненные ситуации.md",
+      "x": 1540,
+      "y": 1380,
+      "width": 395,
+      "height": 200,
+      "color": "3"
+    },
+    {
+      "id": "operations",
+      "type": "file",
+      "file": "01 — Разработка/Операционные задачи.md",
+      "x": 2060,
+      "y": 0,
+      "width": 395,
+      "height": 230,
+      "color": "2"
+    },
+    {
+      "id": "milestones",
+      "type": "file",
+      "file": "01 — Разработка/Вехи.md",
+      "x": 2060,
+      "y": 270,
+      "width": 395,
+      "height": 230,
+      "color": "2"
+    },
+    {
+      "id": "risks",
+      "type": "file",
+      "file": "02 — Управление/Риски и открытые решения.md",
+      "x": 2060,
+      "y": 540,
+      "width": 395,
+      "height": 230,
+      "color": "1"
+    },
+    {
+      "id": "p2",
+      "type": "text",
+      "text": "### Бэклог P2\n\nЭти задачи **без дат**, до решения о включении в спринт.",
+      "x": 1540,
+      "y": 1680,
+      "width": 395,
+      "height": 130,
+      "color": "6"
+    },
+    {
+      "id": "m-K10",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K10 — Шеринг портфолио.md",
+      "x": 1540,
+      "y": 1850,
+      "width": 395,
+      "height": 200,
+      "color": "6"
+    },
+    {
+      "id": "m-K11",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K11 — Конструктор элективов.md",
+      "x": 1540,
+      "y": 2080,
+      "width": 395,
+      "height": 200,
+      "color": "6"
+    },
+    {
+      "id": "m-K12",
+      "type": "file",
+      "file": "01 — Разработка/Модули/K12 — Тепловая карта загруженности.md",
+      "x": 1540,
+      "y": 2310,
+      "width": 395,
+      "height": 200,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-0000",
+      "fromNode": "start",
+      "toNode": "phase1",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0001",
+      "fromNode": "phase1",
+      "toNode": "phase2",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0002",
+      "fromNode": "phase2",
+      "toNode": "phase3",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0003",
+      "fromNode": "phase3",
+      "toNode": "phase4",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e-0004",
+      "fromNode": "phase1",
+      "toNode": "m-C1",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0005",
+      "fromNode": "phase1",
+      "toNode": "m-C2",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0006",
+      "fromNode": "phase1",
+      "toNode": "m-C3",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0007",
+      "fromNode": "phase1",
+      "toNode": "m-C4",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0008",
+      "fromNode": "phase1",
+      "toNode": "m-C5",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0009",
+      "fromNode": "phase2",
+      "toNode": "m-S1",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0010",
+      "fromNode": "phase2",
+      "toNode": "m-K1",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0011",
+      "fromNode": "phase2",
+      "toNode": "m-K2",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0012",
+      "fromNode": "phase3",
+      "toNode": "m-K4",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0013",
+      "fromNode": "phase3",
+      "toNode": "m-K5",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0014",
+      "fromNode": "phase3",
+      "toNode": "m-K6",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0015",
+      "fromNode": "phase3",
+      "toNode": "m-K7",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0016",
+      "fromNode": "phase3",
+      "toNode": "m-K3",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0017",
+      "fromNode": "phase3",
+      "toNode": "m-K8",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0018",
+      "fromNode": "phase3",
+      "toNode": "m-K9",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0019",
+      "fromNode": "phase4",
+      "toNode": "operations",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0020",
+      "fromNode": "phase4",
+      "toNode": "milestones",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0021",
+      "fromNode": "phase4",
+      "toNode": "risks",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0022",
+      "fromNode": "p2",
+      "toNode": "m-K10",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0023",
+      "fromNode": "p2",
+      "toNode": "m-K11",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e-0024",
+      "fromNode": "p2",
+      "toNode": "m-K12",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ]
+}

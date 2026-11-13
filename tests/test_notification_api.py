@@ -35,13 +35,12 @@ class NotificationAPITests(unittest.TestCase):
         self.client = TestClient(self.app)
         self.headers = {"Authorization": "Bearer alice-token"}
 
-    def make_app(self, *, demo=False, push=True, telegram=True):
+    def make_app(self, *, push=True, telegram=True):
         app = create_app(self.service, {"alice-token": "ALICE@example.test", "bob-token": "bob@example.test"})
         register_notification_routes(
             app, self.service, self.store, app.state.account_dependency,
             push_sender=self.push if push else None,
             telegram_bot=self.bot if telegram else None,
-            demo=demo,
         )
         return app
 
@@ -162,15 +161,10 @@ class NotificationAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.store.set_settings.assert_not_called()
 
-    def test_demo_static_resources_are_not_exposed_by_live_app(self):
+    def test_api_only_app_serves_no_pages(self):
         self.assertEqual(self.client.get("/").status_code, 404)
-        self.assertEqual(self.client.get("/static/app.js").status_code, 404)
-        with TestClient(self.make_app(demo=True)) as client:
-            self.assertEqual(client.get("/").status_code, 200)
-            response = client.get("/sw.js")
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.headers["Service-Worker-Allowed"], "/")
-            self.assertEqual(client.get("/static/app.js").status_code, 200)
+        self.assertEqual(self.client.get("/login").status_code, 404)
+        self.assertEqual(self.client.get("/sw.js").status_code, 404)
 
 
 class BellIntegrationTests(unittest.TestCase):

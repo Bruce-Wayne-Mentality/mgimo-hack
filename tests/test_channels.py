@@ -41,7 +41,8 @@ class WebPushTests(unittest.TestCase):
             again = WebPushSender(path)
             self.assertEqual(sender.public_key, again.public_key)
             self.assertEqual(len(base64.urlsafe_b64decode(sender.public_key + "=")), 65)
-            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            if os.name == "posix":  # Windows has no POSIX permission bits
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             response = requests.Response()
             response.status_code = 201
             with patch("requests.sessions.Session.request", return_value=response) as request:

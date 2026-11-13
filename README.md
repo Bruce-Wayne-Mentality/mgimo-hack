@@ -1,34 +1,58 @@
-# Личное расписание учебного офиса
+# Цифровой деканат · концепт
 
-Python-парсер расписания ВШЭ и HTTP API для сайта вымышленного вуза. Механизм: подтверждённый аккаунт → email → карточка студента → его занятия. Результат можно показывать в личном кабинете учебного офиса.
+Личный кабинет студента для конкурса (вымышленный вуз, все данные выдуманы). Бэкенд — Python/FastAPI (`hse_schedule`), БД — PostgreSQL 16 через SQLAlchemy 2 и Alembic, фронтенд — React + TypeScript + Vite (`apps/web`). Сейчас готовы вход (C1), личное расписание (C2, источник ВШЭ) и уведомления (C5).
 
-Реализованы загрузка и нормализация занятий, справочник персональных назначений, API, уведомления и демонстрационный личный кабинет с колокольчиком. Интерфейс вашего сайта подключается к тому же API.
+## Быстрый запуск (демо)
 
-## Быстрый запуск
-
-Нужен Python 3.11+. Выполняйте команды из корня репозитория:
+Нужны Python 3.11+ и Node.js 22+. Команды из корня репозитория:
 
 ```bash
 python -m venv .venv
 .venv/bin/python -m pip install -e .
+(cd apps/web && npm ci && npm run build)
 .venv/bin/python -m hse_schedule serve --demo
 ```
 
-Откройте [демонстрационный кабинет](http://127.0.0.1:8000/): в нём можно выбрать Алису или Бориса, посмотреть пары, настройки и колокольчик. Документация API — `/docs`, проверка запуска — `/health`. Страница кабинета доступна только в режиме `--demo`.
+Откройте <http://localhost:8000/> — первым откроется экран входа `/login`. Без входа любые другие экраны перенаправляют на него, а API отвечает `401`. В демо-режиме миграции применяются и тестовые аккаунты создаются автоматически; без `DATABASE_URL` используется SQLite в `.local-state/demo/app.sqlite3`. Safari не принимает `Secure`-куки на `http://localhost`: для него добавьте `--insecure-cookies` (только для разработки).
 
-Демонстрационные аккаунты:
+Для разработки интерфейса запустите API как выше и в другом терминале `cd apps/web && npm run dev` — Vite проксирует `/api` на порт 8000.
 
-| Студент | Email | Bearer-токен |
+### Тестовые аккаунты (раздел 13.1 диздока)
+
+| Роль | Логин | Пароль |
 | --- | --- | --- |
-| Алиса | `alice@demo-university.test` | `demo-alice-token` |
-| Борис | `bob@demo-university.test` | `demo-bob-token` |
+| Студент А, 2 курс | `student.anna` | `Demo-Anna-2026` |
+| Студент Б, 3 курс | `student.boris` | `Demo-Boris-2026` |
+| Студент В, 1 курс | `student.vera` | `Demo-Vera-2026` |
+| Сотрудник деканата | `staff.deanery` | `Demo-Staff-2026` |
+| Администратор | `admin.demo` | `Demo-Admin-2026` |
+
+Пароли публичные и выдуманные; в БД хранятся только argon2id-хэши. В демо-режиме страница входа показывает эти аккаунты.
+
+### Вход и безопасность
+
+- `POST /api/auth/login` — логин и пароль, ставит куку `__Host-session` (HttpOnly, Secure, SameSite=Lax), возвращает пользователя и CSRF-токен. Токен сессии — 32 случайных байта; в таблице `sessions` только его SHA-256.
+- Сессия живёт 12 часов бездействия, с «Запомнить меня» — 30 дней. `POST /api/auth/logout` удаляет сессию на сервере, `POST /api/auth/logout-all` — все сессии пользователя.
+- `POST /api/auth/password` — смена пароля (от 10 символов), завершает остальные сессии.
+- 5 неудачных попыток за 15 минут для пары «логин + IP» блокируют её на 15 минут (`429`, `Retry-After`); с одного IP — не больше 30 неудач. Ответ для «нет логина» и «неверный пароль» одинаковый.
+- Все изменяющие запросы с кукой требуют заголовок `X-CSRF-Token` (`GET /api/auth/me` выдаёт его заново после перезагрузки страницы).
+- `GET /api/me/profile` — профиль только владельца сессии; эндпоинтов, принимающих id студента, нет.
+- Входы, выходы, блокировки и смены пароля пишутся в `audit_log`. Заголовки: строгий CSP без `unsafe-inline`, `X-Frame-Options: DENY`, `nosniff`.
+- Ошибки: `{"error": {"code", "message", "fields"}}`.
+
+### База данных
 
 ```bash
-curl 'http://127.0.0.1:8000/api/me/schedule?start=2026-11-09&finish=2026-11-15' \
-  -H 'Authorization: Bearer demo-alice-token'
+export DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/dekanat
+export SESSION_SECRET=$(openssl rand -base64 48)
+.venv/bin/python -m hse_schedule db-upgrade     # alembic upgrade head
+.venv/bin/python -m hse_schedule seed-demo      # факультеты, группы, тестовые аккаунты
+.venv/bin/python -m hse_schedule serve --demo --host 127.0.0.1
 ```
 
-Поменяйте токен на `demo-bob-token`: общие лекции сохранятся, семинары изменятся. У каждого студента по четыре занятия: две общие лекции и два собственных семинара. Данные в `examples/lessons.json` синтетические, датированы 9–13 ноября 2026 года и не требуют сети ВШЭ.
+Миграции лежат в `hse_schedule/migrations`; `alembic` из корня использует `DATABASE_URL`. Таблицы: `users`, `students`, `staff`, `faculties`, `groups`, `sessions`, `login_throttle`, `audit_log`. Ключи — UUID v7, время — `timestamptz` в UTC.
+
+Студент связан с расписанием через email из `students.email` и справочник `examples/students.json`.
 
 ## Уведомления и колокольчик
 
@@ -72,7 +96,7 @@ export TELEGRAM_BOT_TOKEN
 cp examples/lessons.json lessons.local.json
 ```
 
-В `tokens.local.json` задайте `{"demo-alice-token":"alice@demo-university.test"}`, затем запустите:
+В `tokens.local.json` задайте `{"local-anna-token":"anna@demo-university.test"}`, затем запустите:
 
 ```bash
 .venv/bin/python -m hse_schedule serve --students examples/students.json \
@@ -128,15 +152,15 @@ todate=2026.11.15
 {
   "students": [
     {
-      "email": "alice@demo-university.test",
-      "name": "Алиса Демо",
+      "email": "anna@demo-university.test",
+      "name": "Анна Миронова",
       "group_oids": ["1000", "1001"]
     }
   ]
 }
 ```
 
-Здесь `1000` — общая лекционная группа, `1001` — семинарская группа Алисы. Email нормализуется: убираются пробелы по краям, регистр не учитывается. Повторяющиеся аккаунты и пустые назначения отклоняются.
+Здесь `1000` — общая лекционная группа, `1001` — семинарская группа Анны. Email нормализуется: убираются пробелы по краям, регистр не учитывается. Повторяющиеся аккаунты и пустые назначения отклоняются.
 
 В режиме `group_oids` сервис дополнительно проверяет принадлежность каждого занятия назначенным учебным группам. Занятия других групп и записи без сведений о группе в личное расписание не попадают.
 
@@ -149,7 +173,7 @@ todate=2026.11.15
 ```bash
 .venv/bin/python -m hse_schedule schedule \
   --students examples/students.json --fixture examples/lessons.json \
-  --email alice@demo-university.test \
+  --email anna@demo-university.test \
   --start 2026-11-09 --finish 2026-11-15
 ```
 
@@ -172,7 +196,7 @@ todate=2026.11.15
 | `POST /api/me/telegram/link` | Одноразовые `deep_link` и `expires_at` |
 | `DELETE /api/me/telegram` | Отвязать Telegram и отменить ожидающие доставки |
 
-Защищённые методы принимают `Authorization: Bearer <токен>`. Email определяется на сервере по токену; параметр `email` в запросе не переключает аккаунт. Ответ расписания содержит `student`, `start`, `finish`, `timezone`, `lessons` и `demo`. По умолчанию используется `Europe/Moscow`; время занятий возвращается в ISO 8601 с часовым смещением.
+Защищённые методы принимают сессионную куку после входа (изменяющие — ещё и `X-CSRF-Token`) или, для интеграции, `Authorization: Bearer <токен>` из `--tokens-file`. Email определяется на сервере по сессии или токену; параметр `email` в запросе не переключает аккаунт. Ответ расписания содержит `student`, `start`, `finish`, `timezone`, `lessons` и `demo`. По умолчанию используется `Europe/Moscow`; время занятий возвращается в ISO 8601 с часовым смещением.
 
 Для запуска с собственными данными создайте `students.local.json` и закрытый `tokens.local.json` формата:
 
@@ -208,7 +232,11 @@ app.dependency_overrides[app.state.account_dependency] = get_verified_account_em
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
+TEST_DATABASE_URL=postgresql://.../dekanat_test .venv/bin/python -m unittest tests.test_auth tests.test_db
+(cd apps/web && npm run typecheck && npm test)
 ```
+
+`TEST_DATABASE_URL` должен указывать на одноразовую базу: тесты удаляют в ней все таблицы.
 
 Тесты не требуют доступа к ВШЭ. Проверяются разбор данных, персональные назначения, разделение аккаунтов, напоминания, изменения расписания, колокольчик, привязка Telegram и повторные доставки. Web Push и Telegram проверяются с подменёнными HTTP-транспортами; это не подтверждает получение сообщения реальным устройством. CI запускает тесты на Python 3.11 и 3.12.
 

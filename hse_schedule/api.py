@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hmac
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import date
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.responses import JSONResponse
@@ -26,11 +27,18 @@ def create_app(
     telegram_bot=None,
     run_workers: bool = False,
     refresh_interval: float = 60,
+    auth=None,
+    auth_settings=None,
+    demo_accounts: Sequence[Mapping[str, str]] = (),
+    web_dist: Path | None = None,
 ) -> FastAPI:
-    """Create the API with server-issued bearer tokens mapped to account emails.
+    """Create the API.
 
-    A host application can replace the authentication dependency with its own
-    verified session/JWT identity. Never take the account email from query data.
+    Identity comes from a server-side session cookie when ``auth`` (an
+    AuthService) is given, and/or from server-issued bearer tokens mapped to
+    account emails. A host application can replace the authentication
+    dependency with its own verified identity. Never take the account email
+    from query data.
     """
     account_tokens = tuple(tokens.items())
     if any(
@@ -72,7 +80,22 @@ def create_app(
     )
     bearer = HTTPBearer(auto_error=False)
 
-    def authenticated_email(
+    from .web import add_security_headers
+
+    add_security_headers(app)
+    require_session = None
+    if auth is not None:
+        from .accounts.router import register_auth_routes
+
+        require_session = register_auth_routes(app, auth, auth_settings, demo_accounts=demo_accounts)
+    else:
+        async def no_session(_request: Request):
+            return None
+
+        app.state.optional_session = no_session
+
+    async def authenticated_email(
+        request: Request,
         credentials: HTTPAuthorizationCredentials | None = Security(bearer),
     ) -> str:
         if credentials is not None:
@@ -80,6 +103,14 @@ def create_app(
             for token, email in account_tokens:
                 if hmac.compare_digest(supplied, token.encode("utf-8")):
                     return email
+        if require_session is not None and credentials is None:
+            from .accounts.policy import schedule_email
+
+            current = await require_session(request)
+            email = schedule_email(current.user)
+            if email is None:
+                raise HTTPException(status_code=404, detail="Личное расписание доступно только студентам.")
+            return email
         raise HTTPException(
             status_code=401,
             detail="Требуется действительный токен аккаунта.",
@@ -159,7 +190,12 @@ def create_app(
 
         register_notification_routes(
             app, service, notification_store, authenticated_email,
-            push_sender=push_sender, telegram_bot=telegram_bot, demo=demo,
+            push_sender=push_sender, telegram_bot=telegram_bot,
         )
+
+    if web_dist is not None:
+        from .web import register_web
+
+        register_web(app, web_dist)
 
     return app

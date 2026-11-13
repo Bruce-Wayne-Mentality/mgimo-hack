@@ -165,14 +165,14 @@ class DemoIntegrationTests(unittest.TestCase):
         app = create_app(
             service,
             {
-                "alice-demo": "alice@demo-university.test",
-                "bob-demo": "bob@demo-university.test",
+                "anna-demo": "anna@demo-university.test",
+                "boris-demo": "boris@demo-university.test",
             },
             demo=True,
         )
         schedules = {}
         with TestClient(app) as client:
-            for account in ("alice", "bob"):
+            for account in ("anna", "boris"):
                 response = client.get(
                     "/api/me/schedule",
                     params={"start": "2026-11-09", "finish": "2026-11-15"},
@@ -181,8 +181,8 @@ class DemoIntegrationTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 schedules[account] = response.json()
 
-        alice = {lesson["source_lesson_id"] for lesson in schedules["alice"]["lessons"]}
-        bob = {lesson["source_lesson_id"] for lesson in schedules["bob"]["lessons"]}
+        alice = {lesson["source_lesson_id"] for lesson in schedules["anna"]["lessons"]}
+        bob = {lesson["source_lesson_id"] for lesson in schedules["boris"]["lessons"]}
         self.assertEqual(alice & bob, {"90001", "90004"})
         self.assertEqual(alice - bob, {"90002", "90005"})
         self.assertEqual(bob - alice, {"90003", "90006"})

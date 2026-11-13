@@ -5,11 +5,8 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 
 
@@ -38,7 +35,6 @@ def register_notification_routes(
     *,
     push_sender=None,
     telegram_bot=None,
-    demo: bool = False,
 ) -> None:
     """Attach personal notification APIs using the host's verified identity."""
 
@@ -135,20 +131,3 @@ def register_notification_routes(
     def unlink_telegram(email: str = Depends(account)) -> Response:
         store.unlink_telegram(email)
         return Response(status_code=204)
-
-    if demo:
-        static = Path(__file__).resolve().parent / "static"
-
-        @app.get("/", include_in_schema=False)
-        def demo_page() -> FileResponse:
-            return FileResponse(static / "index.html")
-
-        @app.get("/sw.js", include_in_schema=False)
-        def service_worker() -> FileResponse:
-            return FileResponse(
-                static / "sw.js",
-                media_type="application/javascript",
-                headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
-            )
-
-        app.mount("/static", StaticFiles(directory=static), name="static")

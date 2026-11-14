@@ -5,6 +5,7 @@ import { Card, CardTitle, EmptyState, ErrorState, IconChip, MoreLink, Skeleton }
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import type { NotificationPage } from "@/lib/types";
+import { OPEN, useMyRequests } from "../requests/api";
 import { dayLabel, LessonCard, moscowDate, timeLabel, useSchedule } from "../schedule/lessons";
 
 function plural(count: number, one: string, few: string, many: string): string {
@@ -50,6 +51,9 @@ function StudentHome() {
   const now = Date.now();
   const next = lessons.find((lesson) => new Date(lesson.ends_at).getTime() > now);
   const unread = latest.data?.unread_count ?? 0;
+  const requests = useMyRequests();
+  const active = (requests.data ?? []).filter((item) => OPEN.includes(item.status));
+  const waiting = active.filter((item) => item.status === "needs_info").length;
 
   return (
     <>
@@ -67,7 +71,13 @@ function StudentHome() {
           tone={unread ? "warn" : "ok"}
           value={latest.isPending ? "…" : unread ? `${unread} ${plural(unread, "новое", "новых", "новых")}` : "Всё прочитано"}
         />
-        <StatusTile to="/requests" icon={ClipboardList} label="Заявки" tone="idle" value="Скоро" />
+        <StatusTile
+          to="/requests"
+          icon={ClipboardList}
+          label="Заявки"
+          tone={waiting ? "warn" : "ok"}
+          value={requests.isPending ? "…" : waiting ? `Нужен ответ: ${waiting}` : active.length ? `${active.length} в работе` : "Нет активных"}
+        />
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -135,8 +145,8 @@ export function HomePage() {
         <StudentHome />
       ) : (
         <Card>
-          <CardTitle>Кабинет сотрудника</CardTitle>
-          <p className="m-0 text-text-2">Очередь заявок и панель факультета появятся в следующих модулях. Профиль доступен в меню.</p>
+          <CardTitle meta={<MoreLink to="/staff/requests">Очередь</MoreLink>}>Кабинет сотрудника</CardTitle>
+          <p className="m-0 text-text-2">Заявки студентов вашего факультета — в очереди, по сроку. Панель факультета и объявления появятся в следующих модулях.</p>
         </Card>
       )}
     </div>

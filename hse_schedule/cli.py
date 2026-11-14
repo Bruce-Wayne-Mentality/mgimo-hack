@@ -51,9 +51,14 @@ async def _seed(url: str) -> dict:
     from .accounts.seed import seed_demo
     from .db import Database
 
+    from .student_requests.seed import seed_demo_requests, seed_request_types
+
     database = Database(url, pooled=False)
     try:
-        return await seed_demo(database)
+        created = await seed_demo(database)
+        created["request_types"] = await seed_request_types(database)
+        created["requests"] = await seed_demo_requests(database)
+        return created
     finally:
         await database.dispose()
 
@@ -188,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
             bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
             bot = TelegramBot(bot_token, username=os.environ.get("TELEGRAM_BOT_USERNAME")) if bot_token else None
             auth = auth_settings = None
+            request_service = None
             demo_accounts = ()
             if database_url:
                 from .accounts.router import AuthSettings
@@ -201,7 +207,16 @@ def main(argv: list[str] | None = None) -> int:
                     upgrade(database_url)
                     _run(_seed(database_url))
                     demo_accounts = DEMO_ACCOUNTS
-                auth = AuthService(Database(database_url))
+                from datetime import datetime, timezone
+
+                from .student_requests.service import RequestService
+
+                database = Database(database_url)
+                auth = AuthService(database)
+                request_service = RequestService(
+                    database,
+                    notify=lambda email, drafts: store.publish_notifications(email, drafts, datetime.now(timezone.utc)),
+                )
                 auth_settings = AuthSettings(
                     secret=_session_secret(state_dir, args.demo),
                     cookie_secure=not args.insecure_cookies,
@@ -214,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
                 service, tokens, demo=args.demo, notification_store=store,
                 push_sender=push, telegram_bot=bot, run_workers=True,
                 refresh_interval=args.refresh_interval, auth=auth, auth_settings=auth_settings,
-                demo_accounts=demo_accounts, web_dist=web_dist,
+                demo_accounts=demo_accounts, web_dist=web_dist, request_service=request_service,
             )
             uvicorn.run(app, host=args.host, port=args.port)
         return 0

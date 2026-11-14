@@ -31,6 +31,7 @@ def create_app(
     auth_settings=None,
     demo_accounts: Sequence[Mapping[str, str]] = (),
     web_dist: Path | None = None,
+    request_service=None,
 ) -> FastAPI:
     """Create the API.
 
@@ -192,6 +193,11 @@ def create_app(
             app, service, notification_store, authenticated_email,
             push_sender=push_sender, telegram_bot=telegram_bot,
         )
+
+    if request_service is not None and require_session is not None:
+        from .student_requests.router import register_request_routes
+
+        register_request_routes(app, request_service)
 
     if web_dist is not None:
         from .web import register_web

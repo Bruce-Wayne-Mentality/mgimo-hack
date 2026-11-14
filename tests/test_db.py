@@ -9,6 +9,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import select
 
+from hse_schedule import student_requests  # noqa: F401  (registers request tables)
 from hse_schedule.accounts.models import Faculty, StudyGroup, User
 from hse_schedule.accounts.seed import DEMO_ACCOUNTS, seed_demo
 from hse_schedule.db import Base, Database, async_database_url, uuid7

@@ -39,7 +39,7 @@ STUDENTS = (
 STAFF = (
     {"login": "staff.deanery", "password": "Demo-Staff-2026", "role": "staff",
      "full_name": "Ольга Викторовна Демченко", "position": "Специалист деканата", "faculty": "ECON",
-     "scopes": ["CERT_STUDY", "CERT_INTERN", "CERT_MIL", "TRANSCRIPT", "ACAD_LEAVE"],
+     "scopes": ["CERT_STUDY", "TRANSCRIPT", "CERT_INTERN", "CERT_MIL", "RETAKE", "TRANSFER", "ACAD_LEAVE"],
      "description": "Сотрудник деканата"},
     {"login": "admin.demo", "password": "Demo-Admin-2026", "role": "admin",
      "full_name": "Администратор демо", "position": "Администратор системы", "faculty": None,
@@ -87,6 +87,10 @@ async def seed_demo(database: Database) -> dict[str, int]:
             created["users"] += 1
         for data in STAFF:
             if data["login"] in existing:
+                # Keep demo scopes in sync when the catalogue grows.
+                staff = await db.scalar(select(Staff).join(User, Staff.user_id == User.id).where(func.lower(User.login) == data["login"]))
+                if staff is not None and staff.scopes != data["scopes"]:
+                    staff.scopes = data["scopes"]
                 continue
             user = User(login=data["login"], password_hash=hash_password(data["password"]), role=data["role"])
             db.add(user)

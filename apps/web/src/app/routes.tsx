@@ -5,6 +5,10 @@ import { HomePage } from "@/features/home/HomePage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { ComingSoon, MorePage, NotFoundPage } from "@/features/placeholder/pages";
 import { ProfilePage } from "@/features/profile/ProfilePage";
+import { NewRequestPage } from "@/features/requests/NewRequestPage";
+import { RequestDetailPage } from "@/features/requests/RequestDetailPage";
+import { RequestsPage } from "@/features/requests/RequestsPage";
+import { StaffRequestPage, StaffRequestsPage } from "@/features/staff/StaffRequestsPage";
 import { SchedulePage } from "@/features/schedule/SchedulePage";
 import { AppShell } from "./AppShell";
 
@@ -27,7 +31,16 @@ export const routes: RouteObject[] = [
               { path: "schedule", element: <SchedulePage /> },
               { path: "notifications", element: <NotificationsPage /> },
               { path: "study", element: <ComingSoon title="Учёба" text="Дисциплины, баллы и светофор успеваемости появятся в модулях C3 и K1." /> },
-              { path: "requests", element: <ComingSoon title="Заявки" text="Справки и заявки в деканат появятся в модуле C4." /> },
+              { path: "requests", element: <RequestsPage /> },
+              { path: "requests/new", element: <NewRequestPage /> },
+              { path: "requests/:id", element: <RequestDetailPage /> },
+            ],
+          },
+          {
+            element: <RequireAuth roles={["staff", "admin"]} />,
+            children: [
+              { path: "staff/requests", element: <StaffRequestsPage /> },
+              { path: "staff/requests/:id", element: <StaffRequestPage /> },
             ],
           },
           { path: "*", element: <NotFoundPage /> },

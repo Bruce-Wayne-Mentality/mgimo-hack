@@ -7,7 +7,7 @@ import { useSession } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import type { NotificationPage } from "@/lib/types";
 
-type Item = { to: string; label: string; icon: LucideIcon; studentOnly?: boolean; desktopOnly?: boolean };
+type Item = { to: string; label: string; icon: LucideIcon; studentOnly?: boolean; staffOnly?: boolean; desktopOnly?: boolean };
 
 // Section 6: Главная · Расписание · Учёба · Заявки · Ещё (+ уведомления в сайдбаре на десктопе).
 const NAV: Item[] = [
@@ -15,6 +15,7 @@ const NAV: Item[] = [
   { to: "/schedule", label: "Расписание", icon: CalendarDays, studentOnly: true },
   { to: "/study", label: "Учёба", icon: GraduationCap, studentOnly: true },
   { to: "/requests", label: "Заявки", icon: ClipboardList, studentOnly: true },
+  { to: "/staff/requests", label: "Очередь", icon: ClipboardList, staffOnly: true },
   { to: "/notifications", label: "Уведомления", icon: Bell, studentOnly: true, desktopOnly: true },
   { to: "/more", label: "Ещё", icon: LayoutGrid },
 ];
@@ -137,7 +138,7 @@ export function AppShell() {
   const user = data!.user;
   const isStudent = user.role === "student";
   const unread = useUnreadCount(isStudent);
-  const items = NAV.filter((item) => isStudent || !item.studentOnly);
+  const items = NAV.filter((item) => (isStudent ? !item.staffOnly : !item.studentOnly));
 
   return (
     <div className="min-h-dvh md:pl-[116px]">

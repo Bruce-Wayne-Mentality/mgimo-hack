@@ -71,11 +71,12 @@ def _output(payload: object, path: Path | None) -> None:
         path.write_text(text, encoding="utf-8")
 
 
-def _service(students: Path, fixture: Path | None):
+def _service(students: Path, fixture: Path | None, *, demo: bool = False):
     from .directory import StudentDirectory
-    from .service import FixtureSource, ScheduleService
+    from .service import FixtureSource, ScheduleService, WeeklyDemoSource
 
-    source = FixtureSource(fixture) if fixture else HSEClient()
+    source_type = WeeklyDemoSource if demo else FixtureSource
+    source = source_type(fixture) if fixture else HSEClient()
     return ScheduleService(StudentDirectory.from_file(students), source)
 
 
@@ -175,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
                     tokens = json.loads(args.tokens_file.read_text(encoding="utf-8"))
                     if not isinstance(tokens, dict) or not tokens:
                         raise ConfigurationError("Файл токенов должен содержать непустой объект token → email.")
-            service = _service(args.students, fixture)
+            service = _service(args.students, fixture, demo=args.demo)
             from .notification_store import NotificationStore
             from .push import WebPushSender
             from .telegram import TelegramBot

@@ -6,13 +6,31 @@ import type { Lesson, Schedule } from "@/lib/types";
 const TZ = "Europe/Moscow";
 
 export function moscowDate(value = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(value);
+  const fields = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${fields.year}-${fields.month}-${fields.day}`;
+}
+
+function calendarDate(day: string): Date {
+  const date = new Date(`${day}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== day) {
+    throw new RangeError("Invalid calendar date");
+  }
+  return date;
 }
 
 export function addDays(day: string, days: number): string {
-  const date = new Date(`${day}T12:00:00+03:00`);
+  const date = calendarDate(day);
   date.setUTCDate(date.getUTCDate() + days);
-  return moscowDate(date);
+  return date.toISOString().slice(0, 10);
+}
+
+export function calendarWeek(day = moscowDate()): { start: string; finish: string } {
+  const weekday = calendarDate(day).getUTCDay();
+  const start = addDays(day, -((weekday + 6) % 7));
+  return { start, finish: addDays(start, 6) };
 }
 
 export function dayLabel(day: string): string {

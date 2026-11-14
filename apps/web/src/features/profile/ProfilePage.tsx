@@ -4,9 +4,10 @@ import { LogOut, MonitorSmartphone } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Alert, Button, Card, ErrorState, Field, Input, Skeleton } from "@/components/ui";
+import { Alert, Button, Card, CardTitle, ErrorState, Field, Input, PageHeader, Skeleton } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { useLogout } from "@/lib/auth";
+import { initials } from "@/app/AppShell";
 import type { Profile } from "@/lib/types";
 
 const passwordSchema = z
@@ -19,11 +20,11 @@ const passwordSchema = z
 
 type PasswordValues = z.infer<typeof passwordSchema>;
 
-function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
+function Row({ label, value, wide }: { label: string; value: string | number | null | undefined; wide?: boolean }) {
   return (
-    <div className="flex flex-col gap-0.5 border-b border-border py-2.5 last:border-0 sm:flex-row sm:gap-4">
-      <dt className="text-sm text-muted sm:w-48 sm:shrink-0">{label}</dt>
-      <dd className="m-0">{value ?? "—"}</dd>
+    <div className={`rounded-[var(--radius-tile)] bg-surface-2 px-4 py-3 ${wide ? "sm:col-span-2" : ""}`}>
+      <dt className="caption">{label}</dt>
+      <dd className="m-0 mt-0.5 font-medium">{value ?? "—"}</dd>
     </div>
   );
 }
@@ -62,7 +63,7 @@ function PasswordForm() {
       </Field>
       {generalError && <Alert>{generalError}</Alert>}
       {done && <Alert tone="info">Пароль изменён. На других устройствах нужно войти заново.</Alert>}
-      <Button type="submit" loading={change.isPending} className="self-start">Сменить пароль</Button>
+      <Button type="submit" loading={change.isPending} className="w-full sm:w-auto sm:self-start">Сменить пароль</Button>
     </form>
   );
 }
@@ -70,56 +71,79 @@ function PasswordForm() {
 export function ProfilePage() {
   const profile = useQuery({ queryKey: ["profile"], queryFn: () => api<Profile>("/api/me/profile") });
   const logout = useLogout();
+  const data = profile.data;
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="m-0 text-[28px] font-semibold">Профиль</h1>
+      <PageHeader eyebrow="Учётная запись" title="Профиль" />
+
+      {data && (
+        <section className="flex flex-col gap-5 rounded-[var(--radius-card)] bg-[image:var(--k-gradient-primary)] p-6 text-on-primary sm:flex-row sm:items-center">
+          <span className="grid size-16 shrink-0 place-items-center rounded-full bg-white/20 text-xl font-medium">{initials(data.full_name)}</span>
+          <div className="min-w-0 flex-1">
+            <p className="m-0 text-[24px] leading-tight font-medium tracking-[-0.02em]">{data.full_name}</p>
+            <p className="m-0 mt-1 text-sm opacity-80">{data.kind === "student" ? data.faculty : data.role}</p>
+          </div>
+          {data.kind === "student" && (
+            <div className="flex flex-wrap gap-2">
+              {[data.group, `${data.course} курс`, data.status].map((chip) => (
+                <span key={chip} className="rounded-[10px] bg-white/16 px-3 py-1.5 text-[13px]">{chip}</span>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <Card aria-labelledby="profile-heading">
-        <h2 id="profile-heading" className="m-0 mb-1 text-xl font-semibold">Личные данные</h2>
-        <p className="mt-0 mb-2 text-sm text-muted">Учебные данные меняет только деканат.</p>
+        <CardTitle id="profile-heading" meta={<span className="caption">только чтение</span>}>Личные данные</CardTitle>
         {profile.isPending && <Skeleton className="h-48" />}
         {profile.isError && <ErrorState message={profile.error.message} onRetry={() => profile.refetch()} />}
-        {profile.data?.kind === "student" && (
-          <dl className="m-0">
-            <Row label="ФИО" value={profile.data.full_name} />
-            <Row label="Факультет" value={profile.data.faculty} />
-            <Row label="Направление" value={`${profile.data.program.code} ${profile.data.program.title}`} />
-            <Row label="Курс" value={profile.data.course} />
-            <Row label="Группа" value={profile.data.group} />
-            <Row label="Форма обучения" value={profile.data.study_form} />
-            <Row label="Статус" value={profile.data.status} />
-            <Row label="Номер зачётной книжки" value={profile.data.record_book_no} />
-            <Row label="Email" value={profile.data.contacts.email} />
-            <Row label="Телефон" value={profile.data.contacts.phone} />
+        {data?.kind === "student" && (
+          <dl className="m-0 grid gap-2.5 sm:grid-cols-2">
+            <Row label="ФИО" value={data.full_name} wide />
+            <Row label="Направление" value={`${data.program.code} ${data.program.title}`} wide />
+            <Row label="Факультет" value={data.faculty} />
+            <Row label="Группа" value={data.group} />
+            <Row label="Курс" value={data.course} />
+            <Row label="Форма обучения" value={data.study_form} />
+            <Row label="Статус" value={data.status} />
+            <Row label="Номер зачётной книжки" value={data.record_book_no} />
+            <Row label="Email" value={data.contacts.email} />
+            <Row label="Телефон" value={data.contacts.phone} />
           </dl>
         )}
-        {profile.data && profile.data.kind !== "student" && (
-          <dl className="m-0">
-            <Row label="ФИО" value={profile.data.full_name} />
-            <Row label="Роль" value={profile.data.role} />
-            <Row label="Должность" value={profile.data.position} />
-            <Row label="Факультет" value={profile.data.faculty} />
+        {data && data.kind !== "student" && (
+          <dl className="m-0 grid gap-2.5 sm:grid-cols-2">
+            <Row label="ФИО" value={data.full_name} wide />
+            <Row label="Роль" value={data.role} />
+            <Row label="Должность" value={data.position} />
+            <Row label="Факультет" value={data.faculty} wide />
           </dl>
         )}
+        <p className="caption mt-3 mb-0">Учебные данные меняет только деканат.</p>
       </Card>
-      <Card aria-labelledby="password-heading">
-        <h2 id="password-heading" className="m-0 mb-4 text-xl font-semibold">Смена пароля</h2>
-        <PasswordForm />
-      </Card>
-      <Card aria-labelledby="sessions-heading" className="flex flex-col gap-3">
-        <h2 id="sessions-heading" className="m-0 text-xl font-semibold">Выход</h2>
-        {logout.isError && <Alert>{logout.error.message}</Alert>}
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="secondary" loading={logout.isPending && logout.variables === false} onClick={() => logout.mutate(false)}>
-            <LogOut className="size-5" aria-hidden />
-            Выйти
-          </Button>
-          <Button variant="danger" loading={logout.isPending && logout.variables === true} onClick={() => logout.mutate(true)}>
-            <MonitorSmartphone className="size-5" aria-hidden />
-            Выйти на всех устройствах
-          </Button>
-        </div>
-      </Card>
+
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Card aria-labelledby="password-heading">
+          <CardTitle id="password-heading">Смена пароля</CardTitle>
+          <PasswordForm />
+        </Card>
+        <Card aria-labelledby="sessions-heading" className="flex flex-col gap-3">
+          <CardTitle id="sessions-heading">Выход</CardTitle>
+          <p className="m-0 text-sm text-text-2">Выход на этом устройстве удаляет сессию на сервере. «На всех устройствах» завершит вход везде, где вы открывали кабинет.</p>
+          {logout.isError && <Alert>{logout.error.message}</Alert>}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="secondary" loading={logout.isPending && logout.variables === false} onClick={() => logout.mutate(false)}>
+              <LogOut className="size-5" aria-hidden />
+              Выйти
+            </Button>
+            <Button variant="danger" loading={logout.isPending && logout.variables === true} onClick={() => logout.mutate(true)}>
+              <MonitorSmartphone className="size-5" aria-hidden />
+              Выйти на всех устройствах
+            </Button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

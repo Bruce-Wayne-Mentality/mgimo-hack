@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Button, Card, EmptyState, ErrorState, Field, Input, Skeleton } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, Field, Input, PageHeader, Skeleton } from "@/components/ui";
 import { addDays, dayLabel, groupByDay, LessonCard, moscowDate, useSchedule } from "./lessons";
 
 export function SchedulePage() {
@@ -15,7 +15,7 @@ export function SchedulePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="m-0 text-[28px] font-semibold">Расписание</h1>
+      <PageHeader eyebrow="Личное расписание" title="Расписание" />
       <Card>
         <form onSubmit={submit} className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Field id="start" label="С даты">
@@ -24,7 +24,7 @@ export function SchedulePage() {
           <Field id="finish" label="По дату">
             <Input id="finish" type="date" required value={draft.finish} onChange={(e) => setDraft({ ...draft, finish: e.target.value })} />
           </Field>
-          <Button type="submit" className="col-span-2 sm:col-span-1">Показать</Button>
+          <Button type="submit" className="col-span-2 min-h-13 sm:col-span-1">Показать</Button>
         </form>
       </Card>
       <div aria-live="polite" className="flex flex-col gap-4">
@@ -36,8 +36,11 @@ export function SchedulePage() {
         {schedule.data &&
           groupByDay(schedule.data.lessons).map(([day, lessons]) => (
             <Card key={day}>
-              <h2 className="m-0 mb-3 text-base font-semibold first-letter:uppercase">{dayLabel(day)}</h2>
-              <div className="flex flex-col gap-2">
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2 className="m-0 text-lg font-medium first-letter:uppercase">{dayLabel(day)}</h2>
+                <span className="caption">{lessons.length} {lessons.length === 1 ? "пара" : lessons.length < 5 ? "пары" : "пар"}</span>
+              </div>
+              <div className="flex flex-col gap-2.5">
                 {lessons.map((lesson) => (
                   <LessonCard key={lesson.id} lesson={lesson} />
                 ))}

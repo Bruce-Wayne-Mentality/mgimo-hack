@@ -22,8 +22,10 @@ NOT_PAGES = ("/api/", "/docs", "/redoc", "/openapi.json", "/health", "/assets/")
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
-        "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
-        "connect-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; "
+        # Google Fonts (Unbounded, Onest, JetBrains Mono) are the only third-party origins.
+        "default-src 'self'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; "
+        "script-src 'self'; connect-src 'self'; font-src 'self' https://fonts.gstatic.com; "
+        "manifest-src 'self'; worker-src 'self'; "
         "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
     ),
     "X-Content-Type-Options": "nosniff",

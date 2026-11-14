@@ -1,14 +1,19 @@
 {
   "students": [
     {
-      "email": "alice@demo-university.test",
-      "name": "Алиса Демо",
+      "email": "anna@demo-university.test",
+      "name": "Анна Миронова",
       "group_oids": ["1000", "1001"]
     },
     {
-      "email": "bob@demo-university.test",
-      "name": "Борис Демо",
+      "email": "boris@demo-university.test",
+      "name": "Борис Лебедев",
       "group_oids": ["1000", "1002"]
+    },
+    {
+      "email": "vera@demo-university.test",
+      "name": "Вера Кузнецова",
+      "group_oids": ["1000"]
     }
   ]
 }

@@ -25,7 +25,7 @@ class CLITests(unittest.TestCase):
             result = main([
                 "schedule", "--students", str(ROOT / "examples/students.json"),
                 "--fixture", str(ROOT / "examples/lessons.json"),
-                "--email", " ALICE@demo-university.test ",
+                "--email", " ANNA@demo-university.test ",
                 "--start", "2026-11-09", "--finish", "2026-11-15",
             ])
         self.assertEqual(result, 0)

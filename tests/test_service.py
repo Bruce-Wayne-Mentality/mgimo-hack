@@ -166,8 +166,8 @@ class FixtureTests(unittest.TestCase):
     def test_demo_students_share_lectures_but_not_seminars(self):
         directory = StudentDirectory.from_file(ROOT / "examples/students.json")
         service = ScheduleService(directory, FixtureSource(ROOT / "examples/lessons.json"))
-        anna = service.get_schedule("alice@demo-university.test", START, FINISH)
-        boris = service.get_schedule("bob@demo-university.test", START, FINISH)
+        anna = service.get_schedule("anna@demo-university.test", START, FINISH)
+        boris = service.get_schedule("boris@demo-university.test", START, FINISH)
         self.assertEqual(len(anna), 4)
         self.assertEqual(len(boris), 4)
         self.assertEqual(len(set(anna) & set(boris)), 2)

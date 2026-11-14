@@ -13,10 +13,49 @@ from .client import HSEClient
 from .errors import ConfigurationError, ScheduleError
 from .parser import parse_lessons
 
-DEMO_TOKENS = {
-    "demo-alice-token": "alice@demo-university.test",
-    "demo-bob-token": "bob@demo-university.test",
-}
+WEB_DIST = Path("apps/web/dist")
+
+
+def _database_url(args) -> str | None:
+    from .db import database_url_from_env
+
+    return args.database_url or database_url_from_env()
+
+
+def _session_secret(state_dir: Path, demo: bool) -> bytes:
+    value = os.environ.get("SESSION_SECRET", "").strip()
+    if value:
+        if len(value) < 32:
+            raise ConfigurationError("SESSION_SECRET должен быть не короче 32 символов.")
+        return value.encode("utf-8")
+    if not demo:
+        raise ConfigurationError("Задайте SESSION_SECRET (случайная строка от 32 символов).")
+    # Demo convenience: a random secret kept next to the demo state.
+    path = state_dir / "session-secret"
+    if not path.exists():
+        import secrets
+
+        state_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(secrets.token_urlsafe(48), encoding="utf-8")
+        path.chmod(0o600)
+    return path.read_text(encoding="utf-8").strip().encode("utf-8")
+
+
+def _run(coroutine):
+    import asyncio
+
+    return asyncio.run(coroutine)
+
+
+async def _seed(url: str) -> dict:
+    from .accounts.seed import seed_demo
+    from .db import Database
+
+    database = Database(url, pooled=False)
+    try:
+        return await seed_demo(database)
+    finally:
+        await database.dispose()
 
 
 def _dates(parser: argparse.ArgumentParser) -> None:
@@ -67,8 +106,17 @@ def main(argv: list[str] | None = None) -> int:
     schedule.add_argument("--output", type=Path)
     _dates(schedule)
 
-    serve = commands.add_parser("serve", help="Запустить API для личного кабинета")
-    serve.add_argument("--demo", action="store_true", help="Синтетическое расписание и два тестовых аккаунта")
+    db_upgrade = commands.add_parser("db-upgrade", help="Применить миграции БД (DATABASE_URL)")
+    db_upgrade.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
+
+    seed = commands.add_parser("seed-demo", help="Создать вымышленные факультеты, группы и тестовые аккаунты")
+    seed.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
+
+    serve = commands.add_parser("serve", help="Запустить API и личный кабинет")
+    serve.add_argument("--demo", action="store_true", help="Синтетическое расписание и тестовые аккаунты для жюри")
+    serve.add_argument("--database-url", help="По умолчанию DATABASE_URL; в --demo без него используется SQLite")
+    serve.add_argument("--web-dist", type=Path, help="Собранный фронтенд (по умолчанию apps/web/dist, если есть)")
+    serve.add_argument("--insecure-cookies", action="store_true", help="Кука без Secure — только для разработки по HTTP")
     serve.add_argument("--students", type=Path, default=Path("examples/students.json"))
     serve.add_argument("--fixture", type=Path)
     serve.add_argument("--tokens-file", type=Path, help="Закрытый JSON-объект token → email")
@@ -90,6 +138,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "parse":
             lessons = parse_lessons(json.loads(args.input.read_text(encoding="utf-8")))
             _output([lesson.to_dict() for lesson in lessons], args.output)
+        elif args.command in ("db-upgrade", "seed-demo"):
+            url = _database_url(args)
+            if not url:
+                raise ConfigurationError("Задайте DATABASE_URL или --database-url.")
+            if args.command == "db-upgrade":
+                from .migrate import upgrade
+
+                upgrade(url)
+                print("Миграции применены.")
+            else:
+                created = _run(_seed(url))
+                print(f"Демо-данные: создано пользователей {created['users']}, групп {created['groups']}.")
         elif args.command == "schedule":
             service = _service(args.students, args.fixture)
             lessons = service.get_schedule(args.email, args.start, args.finish)
@@ -100,16 +160,22 @@ def main(argv: list[str] | None = None) -> int:
 
             if args.demo and (args.fixture or args.tokens_file):
                 raise ConfigurationError("Для --demo не задавайте --fixture и --tokens-file.")
+            state_dir = args.state_dir / ("demo" if args.demo else "live")
+            database_url = _database_url(args)
+            if args.demo and not database_url:
+                state_dir.mkdir(parents=True, exist_ok=True)
+                database_url = f"sqlite:///{(state_dir / 'app.sqlite3').resolve().as_posix()}"
+            tokens = {}
             if args.demo:
                 fixture = Path("examples/lessons.json")
-                tokens = DEMO_TOKENS
             else:
                 fixture = args.fixture
-                if args.tokens_file is None:
-                    raise ConfigurationError("Укажите --tokens-file или запустите --demo.")
-                tokens = json.loads(args.tokens_file.read_text(encoding="utf-8"))
-                if not isinstance(tokens, dict) or not tokens:
-                    raise ConfigurationError("Файл токенов должен содержать непустой объект token → email.")
+                if args.tokens_file is None and not database_url:
+                    raise ConfigurationError("Укажите DATABASE_URL (вход по логину) или --tokens-file, либо запустите --demo.")
+                if args.tokens_file is not None:
+                    tokens = json.loads(args.tokens_file.read_text(encoding="utf-8"))
+                    if not isinstance(tokens, dict) or not tokens:
+                        raise ConfigurationError("Файл токенов должен содержать непустой объект token → email.")
             service = _service(args.students, fixture, demo=args.demo)
             from .notification_store import NotificationStore
             from .push import WebPushSender
@@ -117,15 +183,38 @@ def main(argv: list[str] | None = None) -> int:
 
             if not math.isfinite(args.refresh_interval) or args.refresh_interval <= 0:
                 raise ConfigurationError("Интервал проверки должен быть положительным.")
-            state_dir = args.state_dir / ("demo" if args.demo else "live")
             store = NotificationStore(state_dir / "notifications.sqlite3")
             push = WebPushSender(state_dir / "vapid-private.pem", args.push_contact)
             bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
             bot = TelegramBot(bot_token, username=os.environ.get("TELEGRAM_BOT_USERNAME")) if bot_token else None
+            auth = auth_settings = None
+            demo_accounts = ()
+            if database_url:
+                from .accounts.router import AuthSettings
+                from .accounts.seed import DEMO_ACCOUNTS
+                from .accounts.service import AuthService
+                from .db import Database
+
+                if args.demo:
+                    from .migrate import upgrade
+
+                    upgrade(database_url)
+                    _run(_seed(database_url))
+                    demo_accounts = DEMO_ACCOUNTS
+                auth = AuthService(Database(database_url))
+                auth_settings = AuthSettings(
+                    secret=_session_secret(state_dir, args.demo),
+                    cookie_secure=not args.insecure_cookies,
+                    demo=args.demo,
+                )
+            web_dist = args.web_dist or (WEB_DIST if (WEB_DIST / "index.html").is_file() else None)
+            if web_dist is not None and auth is None:
+                raise ConfigurationError("Личный кабинет требует входа по логину: задайте DATABASE_URL.")
             app = create_app(
                 service, tokens, demo=args.demo, notification_store=store,
                 push_sender=push, telegram_bot=bot, run_workers=True,
-                refresh_interval=args.refresh_interval,
+                refresh_interval=args.refresh_interval, auth=auth, auth_settings=auth_settings,
+                demo_accounts=demo_accounts, web_dist=web_dist,
             )
             uvicorn.run(app, host=args.host, port=args.port)
         return 0

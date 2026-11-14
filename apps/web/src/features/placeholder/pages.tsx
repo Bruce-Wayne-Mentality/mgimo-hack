@@ -1,14 +1,14 @@
 import { Bell, ChevronRight, UserRound } from "lucide-react";
 import { Link } from "react-router";
-import { Card } from "@/components/ui";
+import { Card, IconChip, PageHeader } from "@/components/ui";
 import { useSession } from "@/lib/auth";
 
 export function ComingSoon({ title, text }: { title: string; text: string }) {
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="m-0 text-[28px] font-semibold">{title}</h1>
+      <PageHeader eyebrow="Скоро" title={title} />
       <Card>
-        <p className="m-0 text-muted">{text}</p>
+        <p className="m-0 text-text-2">{text}</p>
       </Card>
     </div>
   );
@@ -22,13 +22,15 @@ export function MorePage() {
   ];
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="m-0 text-[28px] font-semibold">Ещё</h1>
-      <Card className="p-2">
-        <ul className="m-0 list-none p-0">
+      <PageHeader eyebrow="Сервисы и настройки" title="Ещё" />
+      <Card className="p-2 sm:p-2">
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
           {links.map((link) => (
             <li key={link.to}>
-              <Link to={link.to} className="flex min-h-12 items-center gap-3 rounded-[var(--radius-control)] px-3 hover:bg-surface-2">
-                <link.icon className="size-5 text-primary" aria-hidden />
+              <Link to={link.to} className="nudge soft flex min-h-16 items-center gap-3 rounded-[var(--radius-tile)] px-3 font-medium hover:bg-surface-2">
+                <IconChip>
+                  <link.icon className="size-5" strokeWidth={1.75} aria-hidden />
+                </IconChip>
                 <span className="flex-1">{link.label}</span>
                 <ChevronRight className="size-5 text-muted" aria-hidden />
               </Link>
@@ -36,7 +38,7 @@ export function MorePage() {
           ))}
         </ul>
       </Card>
-      <p className="m-0 text-sm text-muted">Цифровой студенческий, бронирование и другие сервисы появятся здесь позже.</p>
+      <p className="caption m-0">Цифровой студенческий, бронирование и другие сервисы появятся здесь позже.</p>
     </div>
   );
 }

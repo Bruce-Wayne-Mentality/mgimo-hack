@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from hse_schedule.api import create_app
-from hse_schedule.cli import DEMO_TOKENS, _service
+from hse_schedule.cli import _service
 from hse_schedule.errors import ConfigurationError, InvalidPayload
 from hse_schedule.notification_store import NotificationStore
 from hse_schedule.notifications import NotificationEngine
@@ -19,8 +19,9 @@ from hse_schedule.service import FixtureSource, WeeklyDemoSource
 ROOT = Path(__file__).resolve().parents[1]
 STUDENTS = ROOT / "examples/students.json"
 LESSONS = ROOT / "examples/lessons.json"
-ALICE = "alice@demo-university.test"
-BOB = "bob@demo-university.test"
+ANNA = "anna@demo-university.test"
+BORIS = "boris@demo-university.test"
+TEST_TOKENS = {"test-anna-token": ANNA, "test-boris-token": BORIS}
 
 
 class WeeklyDemoTests(unittest.TestCase):
@@ -31,32 +32,32 @@ class WeeklyDemoTests(unittest.TestCase):
         for monday in (date(2026, 11, 9), date(2026, 11, 16), date(2026, 12, 28), date(2027, 1, 4)):
             sunday = monday + timedelta(days=6)
             with self.subTest(monday=monday):
-                alice = self.service.get_schedule(ALICE, monday, sunday)
-                bob = self.service.get_schedule(BOB, monday, sunday)
-                self.assertEqual(len(alice), 4)
-                self.assertEqual(len(bob), 4)
-                self.assertEqual(len(set(alice) & set(bob)), 2)
-                self.assertEqual({g.oid for row in alice for g in row.groups}, {"1000", "1001"})
-                self.assertEqual({g.oid for row in bob for g in row.groups}, {"1000", "1002"})
-                self.assertTrue(all(monday <= row.date <= sunday for row in (*alice, *bob)))
+                anna = self.service.get_schedule(ANNA, monday, sunday)
+                boris = self.service.get_schedule(BORIS, monday, sunday)
+                self.assertEqual(len(anna), 4)
+                self.assertEqual(len(boris), 4)
+                self.assertEqual(len(set(anna) & set(boris)), 2)
+                self.assertEqual({g.oid for row in anna for g in row.groups}, {"1000", "1001"})
+                self.assertEqual({g.oid for row in boris for g in row.groups}, {"1000", "1002"})
+                self.assertTrue(all(monday <= row.date <= sunday for row in (*anna, *boris)))
 
     def test_partial_week_still_respects_the_requested_days(self):
-        # Friday is genuinely empty for Alice. Showing the complete week is a
+        # Friday is genuinely empty for Anna. Showing the complete week is a
         # UI decision, not permission to leak lessons outside an API interval.
         friday = date(2026, 11, 13)
-        self.assertEqual(self.service.get_schedule(ALICE, friday, friday), ())
-        bob = self.service.get_schedule(BOB, friday, friday)
-        self.assertEqual(len(bob), 1)
-        self.assertEqual(bob[0].date, friday)
+        self.assertEqual(self.service.get_schedule(ANNA, friday, friday), ())
+        boris = self.service.get_schedule(BORIS, friday, friday)
+        self.assertEqual(len(boris), 1)
+        self.assertEqual(boris[0].date, friday)
 
     def test_ids_are_stable_across_overlapping_requests_and_restart(self):
         start, finish = date(2026, 11, 16), date(2026, 11, 22)
-        first = self.service.get_schedule(ALICE, start, finish)
-        overlap = self.service.get_schedule(ALICE, start - timedelta(days=2), finish + timedelta(days=1))
+        first = self.service.get_schedule(ANNA, start, finish)
+        overlap = self.service.get_schedule(ANNA, start - timedelta(days=2), finish + timedelta(days=1))
         restarted = _service(STUDENTS, LESSONS, demo=True)
-        self.assertEqual(first, restarted.get_schedule(ALICE, start, finish))
+        self.assertEqual(first, restarted.get_schedule(ANNA, start, finish))
         self.assertTrue(set(first).issubset(overlap))
-        following = self.service.get_schedule(ALICE, start + timedelta(days=7), finish + timedelta(days=7))
+        following = self.service.get_schedule(ANNA, start + timedelta(days=7), finish + timedelta(days=7))
         self.assertTrue({row.id for row in first}.isdisjoint(row.id for row in following))
         self.assertEqual({row.source_lesson_id for row in first}, {row.source_lesson_id for row in following})
 
@@ -64,14 +65,14 @@ class WeeklyDemoTests(unittest.TestCase):
         service = _service(STUDENTS, LESSONS)
         self.assertIsInstance(service.source, FixtureSource)
         self.assertNotIsInstance(service.source, WeeklyDemoSource)
-        self.assertEqual(service.get_schedule(ALICE, date(2026, 11, 13), date(2026, 11, 20)), ())
-        self.assertEqual(len(service.get_schedule(BOB, date(2026, 11, 13), date(2026, 11, 20))), 1)
-        self.assertEqual(service.get_schedule(BOB, date(2026, 11, 16), date(2026, 11, 22)), ())
+        self.assertEqual(service.get_schedule(ANNA, date(2026, 11, 13), date(2026, 11, 20)), ())
+        self.assertEqual(len(service.get_schedule(BORIS, date(2026, 11, 13), date(2026, 11, 20))), 1)
+        self.assertEqual(service.get_schedule(BORIS, date(2026, 11, 16), date(2026, 11, 22)), ())
 
     def test_actual_api_returns_full_demo_weeks_for_both_accounts(self):
-        app = create_app(self.service, DEMO_TOKENS, demo=True)
+        app = create_app(self.service, TEST_TOKENS, demo=True)
         with TestClient(app) as client:
-            for token in DEMO_TOKENS:
+            for token in TEST_TOKENS:
                 response = client.get(
                     "/api/me/schedule", params={"start": "2026-11-16", "finish": "2026-11-22"},
                     headers={"Authorization": f"Bearer {token}"},
@@ -107,13 +108,13 @@ class WeeklyDemoTests(unittest.TestCase):
             engine = NotificationEngine(self.service, store)
             engine.refresh_schedules(datetime(2026, 11, 13, 6, tzinfo=timezone.utc))
             engine.refresh_schedules(datetime(2026, 11, 14, 6, tzinfo=timezone.utc))
-            self.assertEqual(store.list_notifications(ALICE)["items"], [])
-            self.assertEqual(store.list_notifications(BOB)["items"], [])
+            self.assertEqual(store.list_notifications(ANNA)["items"], [])
+            self.assertEqual(store.list_notifications(BORIS)["items"], [])
             reminder_time = datetime(2026, 11, 16, 6, 20, tzinfo=timezone.utc)
             engine.refresh_schedules(reminder_time)
             engine.emit_reminders(reminder_time)
             NotificationEngine(self.service, store).emit_reminders(reminder_time)
-            for email in (ALICE, BOB):
+            for email in (ANNA, BORIS):
                 items = store.list_notifications(email)["items"]
                 self.assertEqual(len(items), 1)
                 self.assertEqual(items[0]["kind"], "reminder")

@@ -28,7 +28,9 @@
     </section>
     <div class="content-grid">
       <section class="card schedule-card" aria-labelledby="schedule-heading">
-        <div class="section-heading"><div><p class="eyebrow">Учебный план</p><h2 id="schedule-heading">Мои пары</h2></div><button id="refresh" class="text-button">Обновить</button></div>
+        <div class="section-heading"><div><p class="eyebrow">Учебная неделя</p><h2 id="schedule-heading">Мои пары</h2></div><button id="refresh" class="text-button">Обновить</button></div>
+        <div class="week-navigation" role="group" aria-label="Выбрать учебную неделю"><button id="previous-week" class="secondary-button" type="button">← Предыдущая</button><button id="current-week" class="secondary-button" type="button">Эта неделя</button><button id="next-week" class="secondary-button" type="button">Следующая →</button></div>
+        <p class="muted small demo-schedule-note">Демонстрационные пары повторяются каждую неделю. Лекции общие, семинары у каждого свои.</p>
         <form id="date-form" class="date-form"><label>С даты<input id="start-date" type="date" required></label><label>По дату<input id="finish-date" type="date" required></label><button class="primary-button" type="submit">Показать</button></form>
         <p id="schedule-error" class="error" role="alert" hidden></p>
         <div id="schedule-list" class="schedule-list" aria-live="polite"><p class="empty-state">Загружаем пары…</p></div>

@@ -3,6 +3,7 @@
 const accounts = {alice: "demo-alice-token", bob: "demo-bob-token"};
 const $ = (id) => document.getElementById(id);
 let generation = 0;
+let scheduleRequest = 0;
 let session;
 let nextBefore = null;
 
@@ -44,7 +45,30 @@ function handleError(id, error) {
 }
 
 function localDate(value = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit"}).format(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit"}).formatToParts(value);
+  const fields = Object.fromEntries(parts.map(({type, value}) => [type, value]));
+  return `${fields.year}-${fields.month}-${fields.day}`;
+}
+
+function shiftCalendarDate(day, count) {
+  const [year, month, date] = day.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, date));
+  shifted.setUTCDate(shifted.getUTCDate() + count);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function calendarWeek(day = localDate()) {
+  const [year, month, date] = day.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, date)).getUTCDay();
+  const start = shiftCalendarDate(day, -((weekday + 6) % 7));
+  return {start, finish: shiftCalendarDate(start, 6)};
+}
+
+function selectWeek(day = localDate()) {
+  const {start, finish} = calendarWeek(day);
+  $("start-date").value = start;
+  $("finish-date").value = finish;
+  loadSchedule();
 }
 
 function dateLabel(day) {
@@ -56,6 +80,7 @@ function timeLabel(value) {
 }
 
 async function loadSchedule(account = session, quiet = false) {
+  const request = ++scheduleRequest;
   const start = $("start-date").value;
   const finish = $("finish-date").value;
   if (!start || !finish) return;
@@ -63,14 +88,14 @@ async function loadSchedule(account = session, quiet = false) {
   try {
     const query = new URLSearchParams({start, finish});
     const data = await api(`/api/me/schedule?${query}`, {}, account);
-    if (!isCurrent(account)) return;
+    if (!isCurrent(account) || request !== scheduleRequest) return;
     $("schedule-list").replaceChildren();
     const days = new Map();
     for (const lesson of data.lessons) {
       if (!days.has(lesson.date)) days.set(lesson.date, []);
       days.get(lesson.date).push(lesson);
     }
-    if (!days.size) $("schedule-list").append(node("p", "empty-state", "На эти даты пар нет. Можно выбрать другой период."));
+    if (!days.size) $("schedule-list").append(node("p", "empty-state", "На эти даты пар нет. Можно выбрать другую неделю или период."));
     for (const [day, lessons] of days) {
       const section = node("section", "schedule-day");
       section.append(node("h3", "day-heading", dateLabel(day)));
@@ -89,7 +114,7 @@ async function loadSchedule(account = session, quiet = false) {
       $("schedule-list").append(section);
     }
   } catch (error) {
-    if (!quiet) handleError("schedule-error", error);
+    if (!quiet && request === scheduleRequest) handleError("schedule-error", error);
   }
 }
 
@@ -232,6 +257,9 @@ $("read-all").addEventListener("click", async () => {
 });
 $("load-more").addEventListener("click", () => loadNotifications(session, true));
 $("date-form").addEventListener("submit", (event) => { event.preventDefault(); loadSchedule(); });
+$("previous-week").addEventListener("click", () => selectWeek(shiftCalendarDate($("start-date").value || localDate(), -7)));
+$("current-week").addEventListener("click", () => selectWeek());
+$("next-week").addEventListener("click", () => selectWeek(shiftCalendarDate($("start-date").value || localDate(), 7)));
 $("refresh").addEventListener("click", () => { loadSchedule(); loadNotifications(); });
 
 async function switchAccount() {
@@ -269,9 +297,9 @@ async function switchAccount() {
   await Promise.allSettled([loadSchedule(account), loadNotifications(account), loadTelegram(account)]);
 }
 
-const today = new Date();
-$("start-date").value = localDate(today);
-$("finish-date").value = localDate(new Date(today.getTime() + 7 * 86400000));
+const initialWeek = calendarWeek();
+$("start-date").value = initialWeek.start;
+$("finish-date").value = initialWeek.finish;
 $("account").addEventListener("change", switchAccount);
 switchAccount();
 setInterval(() => {

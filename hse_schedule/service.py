@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Protocol
 
@@ -66,12 +66,14 @@ class FixtureSource:
         self.path = Path(path)
         self._lessons = self._load()
 
-    def _load(self) -> tuple[Lesson, ...]:
+    def _payload(self) -> object:
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8-sig"))
+            return json.loads(self.path.read_text(encoding="utf-8-sig"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             raise ConfigurationError(f"Не удалось прочитать файл занятий: {exc}") from exc
-        return parse_lessons(payload, timezone=self.timezone)
+
+    def _load(self) -> tuple[Lesson, ...]:
+        return parse_lessons(self._payload(), timezone=self.timezone)
 
     def schedule(
         self,
@@ -93,4 +95,45 @@ class FixtureSource:
             lesson
             for lesson in lessons
             if start <= lesson.date <= finish and any(group.oid == oid for group in lesson.groups)
+        )
+
+
+class WeeklyDemoSource(FixtureSource):
+    """Repeat a synthetic teaching week for the demo, independently of today.
+
+    Source exports keep their exact dates in FixtureSource. Only --demo uses
+    this adapter: weekdays and times are projected onto the requested dates,
+    then parsed normally so occurrence IDs remain stable across restarts.
+    """
+
+    def schedule(
+        self,
+        *,
+        start: date,
+        finish: date,
+        student_oid: str | None = None,
+        group_oid: str | None = None,
+    ) -> tuple[Lesson, ...]:
+        validate_date_range(start, finish)
+        if student_oid is not None:
+            raise ConfigurationError("Демонстрационный источник поддерживает только учебные группы")
+        if group_oid is None:
+            raise ConfigurationError("Для демонстрационного источника требуется group_oid")
+        oid = normalize_oid(group_oid)
+        payload = self._payload()
+        templates = parse_lessons(payload, timezone=self.timezone)
+        weeks = {lesson.date - timedelta(days=lesson.date.weekday()) for lesson in templates}
+        if len(weeks) > 1:
+            raise ConfigurationError("Шаблон деморасписания должен содержать одну учебную неделю")
+        rows = payload["Lessons"] if isinstance(payload, dict) else payload
+        weekdays = [date.fromisoformat(row["date"].replace(".", "-")).weekday() for row in rows]
+        occurrences = []
+        for offset in range((finish - start).days + 1):
+            day = start + timedelta(days=offset)
+            for row, weekday in zip(rows, weekdays):
+                if day.weekday() == weekday:
+                    occurrences.append({**row, "date": day.isoformat()})
+        return tuple(
+            lesson for lesson in parse_lessons(occurrences, timezone=self.timezone)
+            if any(group.oid == oid for group in lesson.groups)
         )

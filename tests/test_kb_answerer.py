@@ -166,6 +166,24 @@ class AnswererTests(unittest.TestCase):
         self.assertIn("Пункт, на который он ссылается", reply.text)
         self.assertIn("с 1 числа месяца, следующего за приказом о переводе", reply.text)
 
+    def test_answer_that_ignores_the_referenced_clause_falls_back(self):
+        """Found live with GigaChat: the model cited only the clause that points elsewhere and took its number."""
+        def answer(user):
+            sent = ids_in(user)
+            pointer = next(i for i, text in sent.items() if "производится по п. 3.4" in text)
+            return {"answer": "Стипендию назначат по пункту 2.4.", "used_sources": [pointer], "answerable": True}
+
+        reply = self.ask("Когда назначается стипендия после перехода на бюджет?", StubGiga(answer))
+        self.assertEqual(reply.kind, "kb_extract")
+        self.assertIn("с 1 числа месяца, следующего за приказом о переводе", reply.text)
+
+        def both(user):
+            sent = ids_in(user)
+            ids = [i for i, text in sent.items() if "п. 3.4" in text]
+            return {"answer": "С 1 числа месяца, следующего за приказом о переводе.", "used_sources": ids, "answerable": True}
+
+        self.assertEqual(self.ask("Когда назначается стипендия после перехода на бюджет?", StubGiga(both)).kind, "kb_answer")
+
     def test_check_answer_rules(self):
         self.assertEqual(check_answer("Ответ", [], {}), "no_sources")
         self.assertEqual(check_answer("x" * 1000, ["a"], {}), "too_long")

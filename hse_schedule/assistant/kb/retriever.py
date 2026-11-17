@@ -65,6 +65,7 @@ class Hit:
     bm25: float = 0.0
     cosine: float | None = None
     reference: bool = False  # added because a found fragment points to it, not found by the search itself
+    referenced_by: uuid.UUID | None = None  # the fragment whose text points to this one
 
 
 @dataclass
@@ -227,6 +228,6 @@ class Retriever:
                 if found is not None:
                     pending.remove(found)
                 out.append(Hit(fragment=target, score=hit.score, bm25=found.bm25 if found else 0.0,
-                               cosine=found.cosine if found else None, reference=True))
+                               cosine=found.cosine if found else None, reference=True, referenced_by=hit.fragment.id))
                 placed.add(target.id)
         return out[:limit]

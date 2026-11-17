@@ -65,6 +65,11 @@ def check_answer(answer: str, used: list[str], sources: dict[str, Hit]) -> str |
         return "no_sources"
     if any(chunk_id not in sources for chunk_id in used):
         return "unknown_source"
+    # A cited rule that points to another clause («применяется п. 5.1 Положения…») is only half
+    # of the answer: the clause it points to must be cited too (conflict and cross-reference traps).
+    for hit in sources.values():
+        if hit.referenced_by is not None and str(hit.referenced_by) in used and str(hit.fragment.id) not in used:
+            return "reference_ignored"
     cited = "\n".join(sources[chunk_id].fragment.text for chunk_id in used)
     cited_flat = cited.replace(" ", "").replace(" ", "")
     for number in NUMBER.findall(answer):

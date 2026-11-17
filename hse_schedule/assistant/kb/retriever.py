@@ -75,6 +75,12 @@ class SearchResult:
     top_cosine: float | None = None
     top_bm25: float = 0.0
     term_coverage: float = 0.0
+    # (bm25, coverage) of other fragments that may justify an answer — with rewriting, the strongest
+    # word match among the hits; is_confident accepts when the top hit or any of these passes
+    alternatives: list[tuple[float, float]] = field(default_factory=list)
+
+    def word_candidates(self) -> list[tuple[float, float]]:
+        return [(self.top_bm25, self.term_coverage), *self.alternatives]
 
 
 @dataclass
@@ -99,7 +105,7 @@ def is_confident(result: SearchResult, thresholds: dict | None = None) -> bool:
         rule = t["hybrid"]
         return result.top_cosine >= rule["min_cosine"] and result.term_coverage >= rule["min_term_coverage"]
     rule = t.get("bm25_rewrite", t["bm25_only"]) if result.mode == "bm25_rewrite" else t["bm25_only"]
-    return result.top_bm25 >= rule["min_bm25"] and result.term_coverage >= rule["min_term_coverage"]
+    return any(score >= rule["min_bm25"] and coverage >= rule["min_term_coverage"] for score, coverage in result.word_candidates())
 
 
 class Retriever:
@@ -207,21 +213,23 @@ class Retriever:
                     cosine=float(cosines[i]) if cosines is not None and state.has_vector[i] else None) for i in order]
         result = SearchResult(hits=hits, mode=used)
         if hits:
+            terms, extra = set(tokens(query)), set(tokens(expansion or ""))
+
+            def coverage(hit: Hit) -> float:
+                present = set(tokens(hit.fragment.text))
+                value = len(terms & present) / len(terms) if terms else 0.0
+                if extra:  # the regulation's words for the question count as its words too
+                    value = max(value, len(extra & present) / len(extra))
+                return value
+
             top = hits[0]
+            result.top_bm25, result.top_cosine, result.term_coverage = top.bm25, top.cosine, coverage(top)
             if used == "bm25_rewrite":
                 # Found live: «нейросетями в курсовой» put a weak clause first (it got votes from both
-                # rankings for «курсовая»), while the strong match from the rewrite was lower. With
-                # rewriting, confidence comes from the strongest word match among the returned hits.
-                top = max(hits, key=lambda h: h.bm25)
-            result.top_bm25 = top.bm25
-            result.top_cosine = top.cosine
-            terms = set(tokens(query))
-            present = set(tokens(top.fragment.text))
-            result.term_coverage = len(terms & present) / len(terms) if terms else 0.0
-            if expansion:  # the regulation's words for the question count as its words too
-                extra = set(tokens(expansion))
-                if extra:
-                    result.term_coverage = max(result.term_coverage, len(extra & present) / len(extra))
+                # rankings for «курсовая») while the strong match from the rewrite was lower.
+                strongest = max(hits, key=lambda h: h.bm25)
+                if strongest is not top:
+                    result.alternatives.append((strongest.bm25, coverage(strongest)))
         return result
 
 

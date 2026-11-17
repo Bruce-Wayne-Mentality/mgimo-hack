@@ -95,7 +95,12 @@ def calibrate(rows: list[dict], key: str) -> dict:
     grid_c = [x / 10 for x in range(0, 11)]
     best, best_pairs = -1, []
     for a, cov in itertools.product(grid_a, grid_c):
-        accept = lambda r: bool(r["result"].hits) and signal(r) >= a and r["result"].term_coverage >= cov  # noqa: E731
+        def accept(r, a=a, cov=cov) -> bool:
+            if not r["result"].hits:
+                return False
+            if key == "hybrid":
+                return signal(r) >= a and r["result"].term_coverage >= cov
+            return any(score >= a and c >= cov for score, c in r["result"].word_candidates())
         if any(accept(r) for r in rows if not r["q"]["answerable"]):
             continue
         good = sum(1 for r in rows if r["q"]["answerable"] and accept(r))
@@ -109,6 +114,7 @@ def calibrate(rows: list[dict], key: str) -> dict:
     # the largest margin on both sides, instead of a threshold glued to one question.
     a0, c0 = best_pairs[len(best_pairs) // 2]
     accepted = [r for r in rows if r["q"]["answerable"] and r["result"].hits and signal(r) >= a0 and r["result"].term_coverage >= c0]
+    # the gap midpoint below uses the top hit's signals; with alternatives it is checked against best_pairs
     refused = [r for r in rows if not r["q"]["answerable"] and r["result"].hits]
     a, cov = a0, c0
     if accepted and refused:

@@ -65,12 +65,13 @@ class RetrievalRegressionTests(unittest.TestCase):
             await retriever.reload(database)
             result = await retriever.search("Можно ли пользоваться нейросетями в курсовой?", k=5,
                                             expansion="генеративные инструменты искусственный интеллект нейроассистенты умные помощники")
+            expanded = retriever.expand_references(result.hits)
             await database.dispose()
-            return result
+            return result, expanded
 
-        result = asyncio.run(run())
-        self.assertIn("07", {h.fragment.doc_id for h in result.hits})
+        result, expanded = asyncio.run(run())
         self.assertTrue(is_confident(result, load_thresholds()))
+        self.assertIn(("07", "Раздел 5 › п. 5.2"), {(h.fragment.doc_id, h.fragment.section_path) for h in expanded})
 
     def test_hit_at_5_does_not_drop(self):
         self.assertGreaterEqual(self.metrics["hit@5"], 0.83)

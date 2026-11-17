@@ -12,7 +12,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from hse_schedule.assistant.kb import prompts
-from hse_schedule.assistant.kb.answerer import REFUSAL, answer_from_kb, check_answer, mask_question
+from hse_schedule.assistant.kb import answerer
+from hse_schedule.assistant.kb.answerer import REFUSAL, answer_from_kb, check_answer, mask_question, rewrite_query
 from hse_schedule.assistant.kb.models import KbGap
 from hse_schedule.assistant.kb.retriever import Retriever
 from hse_schedule.assistant.kb.store import ChunkData, replace_chunks, upsert_document
@@ -183,6 +184,29 @@ class AnswererTests(unittest.TestCase):
             return {"answer": "С 1 числа месяца, следующего за приказом о переводе.", "used_sources": ids, "answerable": True}
 
         self.assertEqual(self.ask("Когда назначается стипендия после перехода на бюджет?", StubGiga(both)).kind, "kb_answer")
+
+    def test_rewriting_gets_the_masked_question_once_and_survives_failures(self):
+        answerer._rewrites.clear()
+
+        class Rewriter:
+            def __init__(self, fail=False):
+                self.calls, self.fail, self.user = 0, fail, None
+
+            async def chat_json(self, system, user, schema, **kwargs):
+                self.calls += 1
+                self.user = user
+                if self.fail:
+                    raise GigaChatUnavailable("stub")
+                return ChatResult(data={"terms": ["государственная академическая стипендия", "размер"]}, latency_ms=1, tokens=1, model="stub")
+
+        giga = Rewriter()
+        masked = mask_question("Сколько платят отличнику? Тел. +7 916 123-45-67")
+        self.assertEqual(asyncio.run(rewrite_query(giga, masked)), "государственная академическая стипендия размер")
+        self.assertEqual(asyncio.run(rewrite_query(giga, masked)), "государственная академическая стипендия размер")
+        self.assertEqual(giga.calls, 1)  # cached
+        self.assertNotIn("123-45-67", giga.user)
+        self.assertIsNone(asyncio.run(rewrite_query(Rewriter(fail=True), "другой вопрос")))
+        self.assertIsNone(asyncio.run(rewrite_query(None, "вопрос")))
 
     def test_check_answer_rules(self):
         self.assertEqual(check_answer("Ответ", [], {}), "no_sources")

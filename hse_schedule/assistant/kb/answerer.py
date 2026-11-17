@@ -19,6 +19,7 @@ import asyncio
 import logging
 import re
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from ...redbutton.stage1 import mask_pdn
@@ -33,6 +34,32 @@ NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 LINK = re.compile(r"(https?://\S+|www\.\S+|\S+@\S+\.\w+|/[a-z][\w/-]{2,})", re.IGNORECASE)
 MAX_ANSWER = 900
 TIMEOUT = 12.0
+REWRITE_TIMEOUT = 6.0
+_rewrites: OrderedDict[str, str] = OrderedDict()  # masked question → terms; the same question costs one call
+
+
+async def rewrite_query(gigachat, masked: str) -> str | None:
+    """The regulations' words for a (masked) question, for BM25. None when GigaChat is absent or fails."""
+    if gigachat is None or not masked.strip():
+        return None
+    if masked in _rewrites:
+        _rewrites.move_to_end(masked)
+        return _rewrites[masked]
+    try:
+        result = await asyncio.wait_for(
+            gigachat.chat_json(prompts.REWRITE_SYSTEM, f"Вопрос студента: {masked}", prompts.REWRITE_SCHEMA,
+                               name="terms", temperature=0.0, max_tokens=120),
+            timeout=REWRITE_TIMEOUT)
+        terms = result.data.get("terms") if isinstance(result.data, dict) else None
+        if not isinstance(terms, list):
+            return None
+        text = " ".join(t.strip() for t in terms if isinstance(t, str) and t.strip())[:400]
+    except Exception:  # unavailable, timeout, invalid answer: search without the terms
+        return None
+    _rewrites[masked] = text
+    if len(_rewrites) > 512:
+        _rewrites.popitem(last=False)
+    return text or None
 
 
 @dataclass
@@ -97,7 +124,8 @@ async def answer_from_kb(question: str, retriever: Retriever, gigachat, database
                          thresholds: dict | None = None, handoff_text: str | None = None) -> KbReply:
     started = time.perf_counter()
     masked = mask_question(question, names)
-    result = await retriever.search(masked, k=5)
+    expansion = await rewrite_query(gigachat, masked)
+    result = await retriever.search(masked, k=5, expansion=expansion)
     confidence = (result.top_cosine if result.top_cosine is not None else result.top_bm25) if result.hits else 0.0
     if not is_confident(result, thresholds):
         top = result.hits[0] if result.hits else None

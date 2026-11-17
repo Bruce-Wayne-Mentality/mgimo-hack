@@ -47,6 +47,12 @@ class RetrievalRegressionTests(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.temporary, ignore_errors=True)
 
+    def test_answer_check_compares_numbers_not_word_forms(self):
+        self.assertTrue(evaluation.answer_ok("ГАС — 5400 рублей в месяц", {"must_contain": ["5400 руб."]}))
+        self.assertFalse(evaluation.answer_ok("ГАС — 15400 рублей", {"must_contain": ["5400 руб."]}))
+        self.assertTrue(evaluation.answer_ok("нужна «декларация об использовании ИИ»", {"must_contain": ["Декларация об использовании ИИ"]}))
+        self.assertFalse(evaluation.answer_ok("нужна справка", {"must_contain": ["086/у"]}))
+
     def test_hit_at_5_does_not_drop(self):
         self.assertGreaterEqual(self.metrics["hit@5"], 0.83)
 

@@ -16,13 +16,15 @@ from __future__ import annotations
 
 import itertools
 import json
+import re
 from pathlib import Path
 
 from ..textsearch import tokens
 from .chunker import matches_section
 from .retriever import Retriever, SearchResult, is_confident
 
-MODES = (("bm25", "Только BM25"), ("vector", "Только векторы"), ("hybrid", "Гибрид (RRF)"))
+MODES = (("bm25", "Только BM25"), ("rewrite", "BM25 + переписывание запроса"), ("vector", "Только векторы"),
+         ("hybrid", "Гибрид (RRF)"))
 
 
 def load_questions(path: str | Path) -> list[dict]:
@@ -36,10 +38,15 @@ def _rank(result: SearchResult, q: dict) -> int | None:
     return None
 
 
-async def run_mode(retriever: Retriever, questions: list[dict], mode: str) -> list[dict]:
+async def run_mode(retriever: Retriever, questions: list[dict], mode: str, rewriter=None) -> list[dict]:
+    """mode «rewrite» = BM25 with the question rewritten into the regulations' words by rewriter(question)."""
     rows = []
     for q in questions:
-        result = await retriever.search(q["question"], k=5, mode=mode)
+        if mode == "rewrite":
+            expansion = await rewriter(q["question"]) if rewriter else None
+            result = await retriever.search(q["question"], k=5, mode="bm25", expansion=expansion)
+        else:
+            result = await retriever.search(q["question"], k=5, mode=mode)
         expanded = SearchResult(hits=retriever.expand_references(result.hits, limit=5), mode=result.mode)
         rows.append({"q": q, "result": result, "rank": _rank(result, q) if q["answerable"] else None,
                      "rank_refs": _rank(expanded, q) if q["answerable"] else None, "expanded": expanded})
@@ -77,7 +84,7 @@ def calibrate(rows: list[dict], key: str) -> dict:
     Among equally good pairs the one in the middle of the feasible range is taken,
     so the threshold is not glued to a single question.
     """
-    if key == "bm25_only":
+    if key in ("bm25_only", "bm25_rewrite"):
         grid_a = [x / 2 for x in range(0, 41)]  # min_bm25 0 … 20
         signal = lambda r: r["result"].top_bm25  # noqa: E731
         name_a = "min_bm25"
@@ -158,3 +165,48 @@ def failures(rows: list[dict]) -> list[str]:
         out.append(f"- **{q['id']}** «{q['question']}» — эталон {q['gold_doc_id']} / {q['gold_section']}, {place}. "
                    f"Топ-3: {top}. Гипотеза: {hypothesis(r)}.")
     return out
+
+
+NUMBER_GROUP = re.compile(r"\d+")
+
+
+def answer_ok(text: str, q: dict) -> bool:
+    """An answer is right when it carries the key facts of the reference answer.
+
+    A must_contain item with digits counts as present when all its numbers occur
+    in the answer («5400 руб.» ≈ «5400 рублей»); an item without digits must occur
+    as is, ignoring case.
+    """
+    low = text.lower().replace("ё", "е")
+    for item in q["must_contain"]:
+        numbers = NUMBER_GROUP.findall(item)
+        if numbers:
+            if not all(re.search(rf"(?<!\d){n}(?!\d)", low) for n in numbers):
+                return False
+        elif item.lower().replace("ё", "е") not in low:
+            return False
+    return True
+
+
+async def answers(retriever: Retriever, questions: list[dict], giga, database, thresholds: dict | None = None) -> dict:
+    """End to end: answer_from_kb for every question with this GigaChat model."""
+    from .answerer import answer_from_kb
+
+    kinds: dict[str, int] = {}
+    right = refused = 0
+    wrong: list[str] = []
+    for q in questions:
+        reply = await answer_from_kb(q["question"], retriever, giga, database, thresholds=thresholds)
+        kinds[reply.kind] = kinds.get(reply.kind, 0) + 1
+        if q["answerable"]:
+            if reply.kind != "kb_refusal" and answer_ok(reply.text, q):
+                right += 1
+            else:
+                wrong.append(f"{q['id']} ({reply.kind})")
+        elif reply.kind == "kb_refusal":
+            refused += 1
+        else:
+            wrong.append(f"{q['id']} (ответил вместо отказа)")
+    total = sum(1 for q in questions if q["answerable"])
+    return {"right": right, "answerable": total, "refused": refused, "refusals": len(questions) - total,
+            "kinds": kinds, "wrong": wrong}

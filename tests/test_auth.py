@@ -20,7 +20,7 @@ from hse_schedule.accounts.router import AuthSettings
 from hse_schedule.accounts.seed import DEMO_ACCOUNTS, seed_demo
 from hse_schedule.accounts.service import AuthService
 from hse_schedule.api import create_app
-from hse_schedule.db import Base, Database
+from hse_schedule.db import Database
 from hse_schedule.directory import StudentDirectory
 from hse_schedule.migrate import upgrade
 from hse_schedule.notification_store import NotificationStore
@@ -39,8 +39,11 @@ def reset_postgres(url: str) -> None:
     async def drop() -> None:
         database = Database(url, pooled=False)
         async with database.engine.begin() as connection:
-            await connection.run_sync(Base.metadata.drop_all)
-            await connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+            # Drop every table, not only those registered in Base.metadata: models are imported
+            # lazily, so a test module that runs first may not know all of them yet.
+            tables = (await connection.execute(text("SELECT tablename FROM pg_tables WHERE schemaname = current_schema()"))).scalars().all()
+            if tables:
+                await connection.execute(text("DROP TABLE IF EXISTS " + ", ".join(f'"{name}"' for name in tables) + " CASCADE"))
         await database.dispose()
 
     asyncio.run(drop())

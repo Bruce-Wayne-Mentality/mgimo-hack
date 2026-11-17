@@ -138,7 +138,12 @@ class GigaChat:
     async def chat_json(self, system: str, user: str, schema: dict, *, name: str = "verdict",
                         temperature: float = 0.1, max_tokens: int = 600, model: str | None = None,
                         attachments: list[str] | None = None) -> ChatResult:
-        """One structured-output call. Falls back to a forced function call if json_schema is refused."""
+        """One structured-output call. Falls back to a forced function call if json_schema is refused.
+
+        model overrides GIGACHAT_MODEL for this call (the assistant may answer with another model
+        than the red button uses); attachments are file ids from upload_file. The token, the single
+        stream and the breaker stay shared.
+        """
         return await self._guarded(lambda: self._call(system, user, schema, name, temperature, max_tokens, model, attachments))
 
     async def upload_file(self, data: bytes, mime: str, filename: str = "attachment") -> str:

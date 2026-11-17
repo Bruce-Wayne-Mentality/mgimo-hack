@@ -77,6 +77,24 @@ class EmbedTests(unittest.TestCase):
         self.assertEqual(asyncio.run(client(api).embed([])), [])
         self.assertEqual((api.oauth_calls, api.embed_calls), (0, 0))
 
+    def test_chat_model_can_be_chosen_per_call(self):
+        sent = []
+
+        def api(request: httpx.Request) -> httpx.Response:
+            if str(request.url) == OAUTH_URL:
+                return httpx.Response(200, json={"access_token": "t"})
+            sent.append(json.loads(request.content)["model"])
+            return httpx.Response(200, json={"choices": [{"message": {"content": "{\"text\": \"ok\"}"}, "finish_reason": "stop"}],
+                                             "usage": {"total_tokens": 3}})
+
+        giga = GigaChat("c2VjcmV0", transport=httpx.MockTransport(api), model="GigaChat-2")
+        schema = {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
+        asyncio.run(giga.chat_json("s", "u", schema))
+        result = asyncio.run(giga.chat_json("s", "u", schema, model="GigaChat-2-Max"))
+        self.assertEqual(sent, ["GigaChat-2", "GigaChat-2-Max"])
+        self.assertEqual(result.model, "GigaChat-2-Max")
+        self.assertEqual(giga.model, "GigaChat-2")  # the default for other callers is untouched
+
     def test_texts_and_key_never_reach_the_log(self):
         api = FakeApi()
         giga = client(api)

@@ -75,6 +75,12 @@ class SearchResult:
     top_cosine: float | None = None
     top_bm25: float = 0.0
     term_coverage: float = 0.0
+    # (bm25, coverage) of other fragments that may justify an answer — with rewriting, the strongest
+    # word match among the hits; is_confident accepts when the top hit or any of these passes
+    alternatives: list[tuple[float, float]] = field(default_factory=list)
+
+    def word_candidates(self) -> list[tuple[float, float]]:
+        return [(self.top_bm25, self.term_coverage), *self.alternatives]
 
 
 @dataclass
@@ -98,8 +104,8 @@ def is_confident(result: SearchResult, thresholds: dict | None = None) -> bool:
     if result.mode in ("hybrid", "vector_only") and result.top_cosine is not None:
         rule = t["hybrid"]
         return result.top_cosine >= rule["min_cosine"] and result.term_coverage >= rule["min_term_coverage"]
-    rule = t["bm25_only"]
-    return result.top_bm25 >= rule["min_bm25"] and result.term_coverage >= rule["min_term_coverage"]
+    rule = t.get("bm25_rewrite", t["bm25_only"]) if result.mode == "bm25_rewrite" else t["bm25_only"]
+    return any(score >= rule["min_bm25"] and coverage >= rule["min_term_coverage"] for score, coverage in result.word_candidates())
 
 
 class Retriever:
@@ -160,8 +166,13 @@ class Retriever:
         norm = float(np.linalg.norm(vector))
         return vector / norm if norm else None
 
-    async def search(self, query: str, *, audience: set[str] | None = None, k: int = 5, mode: str = "hybrid") -> SearchResult:
-        """mode: hybrid (default), bm25 or vector — the last two exist for the evaluation."""
+    async def search(self, query: str, *, audience: set[str] | None = None, k: int = 5, mode: str = "hybrid",
+                     expansion: str | None = None) -> SearchResult:
+        """mode: hybrid (default), bm25 or vector — the last two exist for the evaluation.
+
+        expansion: terms of the regulations for the same question (from rewrite_query); BM25 runs
+        on the question and on «question + terms», and both rankings join the RRF fusion.
+        """
         state = self._state
         if not state.fragments:
             return SearchResult(hits=[], mode="bm25_only")
@@ -169,6 +180,11 @@ class Retriever:
                    if audience is None or f.audience == "all" or f.audience in audience]
         bm25_all = state.bm25.scores(query) if mode != "vector" else [0.0] * len(state.fragments)
         bm25_rank = sorted((i for i in allowed if bm25_all[i] > 0), key=lambda i: -bm25_all[i])[:POOL]
+        expanded_all: list[float] | None = None
+        expanded_rank: list[int] = []
+        if expansion and expansion.strip() and mode != "vector":
+            expanded_all = state.bm25.scores(f"{query} {expansion}")
+            expanded_rank = sorted((i for i in allowed if expanded_all[i] > 0), key=lambda i: -expanded_all[i])[:POOL]
 
         cosines: np.ndarray | None = None
         vector_rank: list[int] = []
@@ -181,22 +197,39 @@ class Retriever:
         if mode == "vector" and not vector_rank:
             return SearchResult(hits=[], mode="vector_only")
         used = "hybrid" if vector_rank and mode == "hybrid" else ("vector_only" if mode == "vector" else "bm25_only")
+        rankings = [bm25_rank] if used == "bm25_only" else [vector_rank] if used == "vector_only" else [bm25_rank, vector_rank]
+        if expanded_rank and used != "vector_only":
+            rankings.append(expanded_rank)
+            if used == "bm25_only":
+                used = "bm25_rewrite"
         fused: dict[int, float] = {}
-        for ranking in ([bm25_rank] if used == "bm25_only" else [vector_rank] if used == "vector_only" else [bm25_rank, vector_rank]):
+        for ranking in rankings:
             for place, i in enumerate(ranking, start=1):
                 fused[i] = fused.get(i, 0.0) + 1.0 / (RRF_K + place)
         # equal fused score → the document with the higher priority (smaller number) wins
         order = sorted(fused, key=lambda i: (-round(fused[i], 9), state.fragments[i].priority, i))[:k]
-        hits = [Hit(fragment=state.fragments[i], score=fused[i], bm25=bm25_all[i],
+        word_score = [max(a, b) for a, b in zip(bm25_all, expanded_all)] if expanded_all else bm25_all
+        hits = [Hit(fragment=state.fragments[i], score=fused[i], bm25=word_score[i],
                     cosine=float(cosines[i]) if cosines is not None and state.has_vector[i] else None) for i in order]
         result = SearchResult(hits=hits, mode=used)
         if hits:
+            terms, extra = set(tokens(query)), set(tokens(expansion or ""))
+
+            def coverage(hit: Hit) -> float:
+                present = set(tokens(hit.fragment.text))
+                value = len(terms & present) / len(terms) if terms else 0.0
+                if extra:  # the regulation's words for the question count as its words too
+                    value = max(value, len(extra & present) / len(extra))
+                return value
+
             top = hits[0]
-            result.top_bm25 = top.bm25
-            result.top_cosine = top.cosine
-            terms = set(tokens(query))
-            present = set(tokens(top.fragment.text))
-            result.term_coverage = len(terms & present) / len(terms) if terms else 0.0
+            result.top_bm25, result.top_cosine, result.term_coverage = top.bm25, top.cosine, coverage(top)
+            if used == "bm25_rewrite":
+                # Found live: «нейросетями в курсовой» put a weak clause first (it got votes from both
+                # rankings for «курсовая») while the strong match from the rewrite was lower.
+                strongest = max(hits, key=lambda h: h.bm25)
+                if strongest is not top:
+                    result.alternatives.append((strongest.bm25, coverage(strongest)))
         return result
 
 

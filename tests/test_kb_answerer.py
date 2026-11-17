@@ -12,7 +12,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from hse_schedule.assistant.kb import prompts
-from hse_schedule.assistant.kb.answerer import REFUSAL, answer_from_kb, check_answer, mask_question
+from hse_schedule.assistant.kb import answerer
+from hse_schedule.assistant.kb.answerer import REFUSAL, answer_from_kb, check_answer, mask_question, rewrite_query
 from hse_schedule.assistant.kb.models import KbGap
 from hse_schedule.assistant.kb.retriever import Retriever
 from hse_schedule.assistant.kb.store import ChunkData, replace_chunks, upsert_document
@@ -88,7 +89,7 @@ class AnswererTests(unittest.TestCase):
     def scholarship_answer(self, user: str, *, answer: str = "ГАС для отличника — 5400 руб. в месяц.", fake_id: bool = False):
         sent = ids_in(user)
         table = next(i for i, text in sent.items() if "5400" in text)
-        return {"answer": answer, "used_sources": ["00000000-0000-0000-0000-000000000000" if fake_id else table], "answerable": True}
+        return {"answer": answer, "used_sources": ["S99" if fake_id else table], "answerable": True}
 
     def test_grounded_answer_with_sources(self):
         reply = self.ask("Какой размер стипендии ГАС у отличника?", StubGiga(self.scholarship_answer))
@@ -183,6 +184,45 @@ class AnswererTests(unittest.TestCase):
             return {"answer": "С 1 числа месяца, следующего за приказом о переводе.", "used_sources": ids, "answerable": True}
 
         self.assertEqual(self.ask("Когда назначается стипендия после перехода на бюджет?", StubGiga(both)).kind, "kb_answer")
+
+    def test_rewriting_gets_the_masked_question_once_and_survives_failures(self):
+        answerer._rewrites.clear()
+
+        class Rewriter:
+            def __init__(self, fail=False):
+                self.calls, self.fail, self.user = 0, fail, None
+
+            async def chat_json(self, system, user, schema, **kwargs):
+                self.calls += 1
+                self.user = user
+                if self.fail:
+                    raise GigaChatUnavailable("stub")
+                return ChatResult(data={"terms": ["государственная академическая стипендия", "размер"]}, latency_ms=1, tokens=1, model="stub")
+
+        giga = Rewriter()
+        masked = mask_question("Сколько платят отличнику? Тел. +7 916 123-45-67")
+        self.assertEqual(asyncio.run(rewrite_query(giga, masked)), "государственная академическая стипендия размер")
+        self.assertEqual(asyncio.run(rewrite_query(giga, masked)), "государственная академическая стипендия размер")
+        self.assertEqual(giga.calls, 1)  # cached
+        self.assertNotIn("123-45-67", giga.user)
+        self.assertIsNone(asyncio.run(rewrite_query(Rewriter(fail=True), "другой вопрос")))
+        self.assertIsNone(asyncio.run(rewrite_query(None, "вопрос")))
+
+    def test_model_labels_are_normalised_and_constrained(self):
+        self.assertEqual(answerer.normalize_labels(["@S1", "", "[S2]", "s1", None]), ["S1", "S2"])
+        self.assertEqual(answerer.answer_schema(["S1", "S2"])["properties"]["used_sources"]["items"]["enum"], ["S1", "S2"])
+        self.assertNotIn("enum", prompts.SCHEMA["properties"]["used_sources"]["items"])  # the shared schema is not mutated
+
+        def sloppy(user):  # what GigaChat-2-Max returned live: «@S1» instead of «S1»
+            label = next(i for i, text in ids_in(user).items() if "5400" in text)
+            return {"answer": "ГАС для отличника — 5400 руб. в месяц.", "used_sources": [f"@{label}", ""], "answerable": True}
+
+        self.assertEqual(self.ask("Какой размер стипендии ГАС у отличника?", StubGiga(sloppy)).kind, "kb_answer")
+
+        def empty(user):  # and empty strings only: nothing to verify against — the quote, not the answer
+            return {"answer": "ГАС для отличника — 5400 руб. в месяц.", "used_sources": ["", ""], "answerable": True}
+
+        self.assertEqual(self.ask("Какой размер стипендии ГАС у отличника?", StubGiga(empty)).kind, "kb_extract")
 
     def test_check_answer_rules(self):
         self.assertEqual(check_answer("Ответ", [], {}), "no_sources")

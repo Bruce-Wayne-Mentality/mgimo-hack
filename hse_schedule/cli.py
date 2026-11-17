@@ -219,6 +219,14 @@ async def _kb_eval(args, database) -> str:
     await retriever.reload(database)
     questions = evaluation.load_questions(args.questions)
     results = {"bm25": await evaluation.run_mode(retriever, questions, "bm25")}
+    if giga is not None:
+        from .assistant.kb.answerer import mask_question, rewrite_query
+
+        rows = await evaluation.run_mode(retriever, questions, "rewrite",
+                                         rewriter=lambda question: rewrite_query(giga, mask_question(question)))
+        results["rewrite"] = rows if any(r["result"].mode == "bm25_rewrite" for r in rows) else None
+    else:
+        results["rewrite"] = None
     vectors_ready = retriever.vectors > 0 and giga is not None
     for mode in ("vector", "hybrid"):
         rows = await evaluation.run_mode(retriever, questions, mode) if vectors_ready else None
@@ -236,6 +244,15 @@ async def _kb_eval(args, database) -> str:
                                      if bm25["found"] else "пары порогов, при которой отклоняются все вопросы без ответа, нет"))
     if bm25["found"]:
         tuned["bm25_only"] = {"min_bm25": bm25["min_bm25"], "min_term_coverage": bm25["min_term_coverage"]}
+    if results["rewrite"] is not None:
+        rewrite = evaluation.calibrate(results["rewrite"], "bm25_rewrite")
+        out.append("Калибровка BM25 + переписывание: " + (
+            f"min_bm25={rewrite['min_bm25']}, min_term_coverage={rewrite['min_term_coverage']}, "
+            f"с ответом проходят {rewrite['accepted']}" if rewrite["found"] else "пары порогов, при которой отклоняются все вопросы без ответа, нет"))
+        if rewrite["found"]:
+            tuned["bm25_rewrite"] = {"min_bm25": rewrite["min_bm25"], "min_term_coverage": rewrite["min_term_coverage"]}
+    else:
+        out.append("Калибровка BM25 + переписывание: не измерено (нет GigaChat)")
     if results["hybrid"] is not None:
         hybrid = evaluation.calibrate(results["hybrid"], "hybrid")
         out.append("Калибровка гибрида: " + (f"min_cosine={hybrid['min_cosine']}, min_term_coverage={hybrid['min_term_coverage']}, "
@@ -247,6 +264,16 @@ async def _kb_eval(args, database) -> str:
     table, _ = evaluation.report(results, tuned)
     out += ["", "С подобранными порогами:", table, "", "Промахи (эталон не на первом месте):"]
     out += evaluation.failures(results["bm25"]) or ["нет"]
+    if results["rewrite"] is not None:
+        out += ["", "Промахи с переписыванием запроса:"] + (evaluation.failures(results["rewrite"]) or ["нет"])
+    if args.answers and giga is not None:
+        out += ["", "Ответы целиком (answer_from_kb, пороги — подобранные выше):",
+                "| Модель | Верных ответов | Честных отказов | Виды ответов | Ошибки |", "| --- | --- | --- | --- | --- |"]
+        for model in [m.strip() for m in args.answers.split(",") if m.strip()]:
+            a = await evaluation.answers(retriever, questions, giga, database, tuned, model=model)
+            kinds = ", ".join(f"{k}: {v}" for k, v in sorted(a["kinds"].items()))
+            out.append(f"| {model} | {a['right']} из {a['answerable']} | {a['refused']} из {a['refusals']} | {kinds} | "
+                       f"{', '.join(a['wrong']) or '—'} |")
     if args.calibrate:
         tuned["calibrated"] = True
         THRESHOLDS.write_text(_json.dumps(tuned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -367,6 +394,8 @@ def main(argv: list[str] | None = None) -> int:
     kb_eval.add_argument("--manifest", type=Path, help="По умолчанию manifest.json рядом с вопросами; база обновляется перед оценкой")
     kb_eval.add_argument("--bm25-only", action="store_true", help="Не обращаться к GigaChat (векторные режимы — «не измерено»)")
     kb_eval.add_argument("--calibrate", action="store_true", help="Записать подобранные пороги в thresholds.json")
+    kb_eval.add_argument("--answers", metavar="MODELS",
+                         help="Проверить ответы целиком моделями GigaChat через запятую, например GigaChat-2,GigaChat-2-Max")
     kb_db(kb_eval)
 
     serve = commands.add_parser("serve", help="Запустить API и личный кабинет")

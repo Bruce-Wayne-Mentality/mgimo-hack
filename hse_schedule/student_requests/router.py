@@ -15,6 +15,7 @@ from .catalog import display_payload
 from .models import StudentRequest
 from .service import (
     CLOSED_STATUSES,
+    STAFF_CLOCK_STATUSES,
     STATUS_LABELS,
     STUDENT_COMMENT_STATUSES,
     TRANSITIONS,
@@ -218,7 +219,7 @@ def register_request_routes(app: FastAPI, service: RequestService) -> None:
                 {
                     **summary_payload(item),
                     "student": {"full_name": item.student.full_name, "group": item.student.group.code},
-                    "overdue": item.status not in CLOSED_STATUSES and item.due_at < now,
+                    "overdue": item.status in STAFF_CLOCK_STATUSES and item.due_at < now,
                 }
                 for item in items
             ]

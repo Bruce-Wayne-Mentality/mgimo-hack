@@ -32,6 +32,7 @@ def create_app(
     demo_accounts: Sequence[Mapping[str, str]] = (),
     web_dist: Path | None = None,
     request_service=None,
+    modules: Sequence = (),
 ) -> FastAPI:
     """Create the API.
 
@@ -198,6 +199,12 @@ def create_app(
         from .student_requests.router import register_request_routes
 
         register_request_routes(app, request_service)
+
+    # Feature modules (study, documents, assistant, ...) register their routes
+    # once the session dependency exists and before the SPA catch-all.
+    if require_session is not None:
+        for register in modules:
+            register(app)
 
     if web_dist is not None:
         from .web import register_web

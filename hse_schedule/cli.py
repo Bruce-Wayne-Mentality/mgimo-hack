@@ -14,6 +14,8 @@ from .errors import ConfigurationError, ScheduleError
 from .parser import parse_lessons
 
 WEB_DIST = Path("apps/web/dist")
+DEMO_WEEK = Path("examples/demo-week.json")
+DEMO_STUDENTS = Path("examples/demo-students.json")
 
 
 def _database_url(args) -> str | None:
@@ -47,20 +49,67 @@ def _run(coroutine):
     return asyncio.run(coroutine)
 
 
-async def _seed(url: str) -> dict:
+async def _seed_database(database) -> dict:
+    from .academics.seed import seed_academics
     from .accounts.seed import seed_demo
-    from .db import Database
-
+    from .announcements import seed_announcements
+    from .complaints import seed_complaints
     from .student_requests.seed import seed_demo_requests, seed_request_types
+
+    created = await seed_demo(database)
+    created["request_types"] = await seed_request_types(database)
+    created["academics"] = await seed_academics(database)
+    created["requests"] = await seed_demo_requests(database)
+    created["announcements"] = await seed_announcements(database)
+    created["complaints"] = await seed_complaints(database)
+    return created
+
+
+async def _seed(url: str) -> dict:
+    from .db import Database
 
     database = Database(url, pooled=False)
     try:
-        created = await seed_demo(database)
-        created["request_types"] = await seed_request_types(database)
-        created["requests"] = await seed_demo_requests(database)
-        return created
+        return await _seed_database(database)
     finally:
         await database.dispose()
+
+
+def _modules(database, store, secret: bytes, schedule, request_service, *, demo: bool = False) -> tuple:
+    """Route registrations of the feature modules sharing one database and notification store."""
+    from datetime import datetime, timezone
+
+    from .academics.router import register_academic_routes
+    from .academics.service import AcademicService
+    from .announcements import AnnouncementService, register_announcement_routes
+    from .assistant.router import register_assistant_routes
+    from .calendar_feed import CalendarService, register_calendar_routes
+    from .complaints import ComplaintService, register_complaint_routes
+    from .admin import register_admin_routes
+    from .documents.router import register_document_routes
+    from .documents.service import DocumentService
+    from .student_id import StudentIdService, register_student_id_routes
+
+    def notify(email: str, drafts: list[dict]) -> None:
+        store.publish_notifications(email, drafts, datetime.now(timezone.utc))
+
+    base_url = os.environ.get("PUBLIC_BASE_URL") or None
+    academics = AcademicService(database, notify=notify)
+    documents = DocumentService(database, secret, base_url=base_url)
+    student_id = StudentIdService(database, secret, base_url=base_url)
+    announcements = AnnouncementService(database, notify=notify)
+    calendar = CalendarService(database, schedule)
+    complaints = ComplaintService(database, notify=notify)
+    return (
+        lambda app: register_academic_routes(app, academics),
+        lambda app: register_document_routes(app, documents),
+        lambda app: register_student_id_routes(app, student_id),
+        lambda app: register_announcement_routes(app, announcements),
+        lambda app: register_calendar_routes(app, calendar),
+        lambda app: register_complaint_routes(app, complaints),
+        lambda app: register_assistant_routes(app, academics, request_service, schedule),
+        lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database),
+    )
 
 
 def _dates(parser: argparse.ArgumentParser) -> None:
@@ -122,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument("--database-url", help="По умолчанию DATABASE_URL; в --demo без него используется SQLite")
     serve.add_argument("--web-dist", type=Path, help="Собранный фронтенд (по умолчанию apps/web/dist, если есть)")
     serve.add_argument("--insecure-cookies", action="store_true", help="Кука без Secure — только для разработки по HTTP")
-    serve.add_argument("--students", type=Path, default=Path("examples/students.json"))
+    serve.add_argument("--students", type=Path, help="Справочник студентов (в --demo — examples/demo-students.json)")
     serve.add_argument("--fixture", type=Path)
     serve.add_argument("--tokens-file", type=Path, help="Закрытый JSON-объект token → email")
     serve.add_argument("--host", default="127.0.0.1")
@@ -171,8 +220,10 @@ def main(argv: list[str] | None = None) -> int:
                 state_dir.mkdir(parents=True, exist_ok=True)
                 database_url = f"sqlite:///{(state_dir / 'app.sqlite3').resolve().as_posix()}"
             tokens = {}
+            students = args.students
             if args.demo:
-                fixture = Path("examples/lessons.json")
+                fixture = DEMO_WEEK
+                students = students or DEMO_STUDENTS
             else:
                 fixture = args.fixture
                 if args.tokens_file is None and not database_url:
@@ -181,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
                     tokens = json.loads(args.tokens_file.read_text(encoding="utf-8"))
                     if not isinstance(tokens, dict) or not tokens:
                         raise ConfigurationError("Файл токенов должен содержать непустой объект token → email.")
-            service = _service(args.students, fixture, demo=args.demo)
+            service = _service(students or Path("examples/students.json"), fixture, demo=args.demo)
             from .notification_store import NotificationStore
             from .push import WebPushSender
             from .telegram import TelegramBot
@@ -194,6 +245,7 @@ def main(argv: list[str] | None = None) -> int:
             bot = TelegramBot(bot_token, username=os.environ.get("TELEGRAM_BOT_USERNAME")) if bot_token else None
             auth = auth_settings = None
             request_service = None
+            modules = ()
             demo_accounts = ()
             if database_url:
                 from .accounts.router import AuthSettings
@@ -217,8 +269,10 @@ def main(argv: list[str] | None = None) -> int:
                     database,
                     notify=lambda email, drafts: store.publish_notifications(email, drafts, datetime.now(timezone.utc)),
                 )
+                secret = _session_secret(state_dir, args.demo)
+                modules = _modules(database, store, secret, service, request_service, demo=args.demo)
                 auth_settings = AuthSettings(
-                    secret=_session_secret(state_dir, args.demo),
+                    secret=secret,
                     cookie_secure=not args.insecure_cookies,
                     demo=args.demo,
                 )
@@ -230,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
                 push_sender=push, telegram_bot=bot, run_workers=True,
                 refresh_interval=args.refresh_interval, auth=auth, auth_settings=auth_settings,
                 demo_accounts=demo_accounts, web_dist=web_dist, request_service=request_service,
+                modules=modules,
             )
             uvicorn.run(app, host=args.host, port=args.port)
         return 0

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Bell, CalendarDays, ClipboardList, GraduationCap, House, LayoutGrid, type LucideIcon } from "lucide-react";
+import { AlertOctagon, Bell, BookOpenCheck, Bot, CalendarDays, CalendarRange, ClipboardList, GraduationCap, House, LayoutGrid, Megaphone, type LucideIcon } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router";
 import { BrandMark, ConceptNotice } from "@/components/Brand";
 import { api } from "@/lib/api";
@@ -7,7 +7,7 @@ import { useSession } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import type { NotificationPage } from "@/lib/types";
 
-type Item = { to: string; label: string; icon: LucideIcon; studentOnly?: boolean; staffOnly?: boolean; desktopOnly?: boolean };
+type Item = { to: string; label: string; icon: LucideIcon; studentOnly?: boolean; staffOnly?: boolean; adminOnly?: boolean; desktopOnly?: boolean };
 
 // Section 6: Главная · Расписание · Учёба · Заявки · Ещё (+ уведомления в сайдбаре на десктопе).
 const NAV: Item[] = [
@@ -15,7 +15,12 @@ const NAV: Item[] = [
   { to: "/schedule", label: "Расписание", icon: CalendarDays, studentOnly: true },
   { to: "/study", label: "Учёба", icon: GraduationCap, studentOnly: true },
   { to: "/requests", label: "Заявки", icon: ClipboardList, studentOnly: true },
+  { to: "/assistant", label: "Ассистент", icon: Bot, studentOnly: true, desktopOnly: true },
+  { to: "/calendar", label: "Календарь", icon: CalendarRange, studentOnly: true, desktopOnly: true },
   { to: "/staff/requests", label: "Очередь", icon: ClipboardList, staffOnly: true },
+  { to: "/staff/grades", label: "Журнал", icon: BookOpenCheck, staffOnly: true },
+  { to: "/staff/announcements", label: "Объявления", icon: Megaphone, staffOnly: true, desktopOnly: true },
+  { to: "/admin/complaints", label: "Обращения", icon: AlertOctagon, adminOnly: true, desktopOnly: true },
   { to: "/notifications", label: "Уведомления", icon: Bell, studentOnly: true, desktopOnly: true },
   { to: "/more", label: "Ещё", icon: LayoutGrid },
 ];
@@ -138,7 +143,9 @@ export function AppShell() {
   const user = data!.user;
   const isStudent = user.role === "student";
   const unread = useUnreadCount(isStudent);
-  const items = NAV.filter((item) => (isStudent ? !item.staffOnly : !item.studentOnly));
+  const items = NAV.filter((item) =>
+    (isStudent ? !item.staffOnly && !item.adminOnly : !item.studentOnly) && (!item.adminOnly || user.role === "admin"),
+  );
 
   return (
     <div className="min-h-dvh md:pl-[116px]">

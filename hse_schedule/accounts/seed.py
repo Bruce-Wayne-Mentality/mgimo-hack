@@ -39,7 +39,7 @@ STUDENTS = (
 STAFF = (
     {"login": "staff.deanery", "password": "Demo-Staff-2026", "role": "staff",
      "full_name": "Ольга Викторовна Демченко", "position": "Специалист деканата", "faculty": "ECON",
-     "scopes": ["CERT_STUDY", "TRANSCRIPT", "CERT_INTERN", "CERT_MIL", "RETAKE", "TRANSFER", "ACAD_LEAVE"],
+     "scopes": ["CERT_STUDY", "TRANSCRIPT", "CERT_INTERN", "CERT_MIL", "RETAKE", "TRANSFER", "ACAD_LEAVE", "QUESTION"],
      "description": "Сотрудник деканата"},
     {"login": "admin.demo", "password": "Demo-Admin-2026", "role": "admin",
      "full_name": "Администратор демо", "position": "Администратор системы", "faculty": None,

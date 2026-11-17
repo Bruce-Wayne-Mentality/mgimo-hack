@@ -52,6 +52,8 @@ export type Schedule = { start: string; finish: string; timezone: string; lesson
 
 export type Notification = {
   id: number;
+  kind?: string;
+  payload?: { link?: string; important?: boolean } & Record<string, unknown>;
   title: string;
   body: string;
   created_at: string;

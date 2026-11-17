@@ -83,6 +83,15 @@ REQUEST_TYPES: tuple[dict, ...] = (
         ],
     },
     {
+        "code": "QUESTION", "title": "Вопрос в деканат", "sla_days": 1, "sort": 90,
+        "description": "Любой вопрос сотруднику деканата. Сюда же попадают вопросы, переданные ассистентом.",
+        "result": "Ответ сотрудника в переписке",
+        "fields": [
+            {"name": "question", "label": "Вопрос", "kind": "textarea", "required": True, "max_length": 1000},
+            {"name": "dialogue", "label": "Диалог с ассистентом", "kind": "textarea", "required": False, "max_length": 1000},
+        ],
+    },
+    {
         "code": "AID", "title": "Материальная помощь", "sla_days": 7, "sort": 80,
         "description": "Единовременная выплата по заявлению.",
         "result": "Решение комиссии",

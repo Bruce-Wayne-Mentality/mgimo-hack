@@ -5,6 +5,7 @@ import { Alert, Button, Card, CardTitle, ErrorState, PageHeader, Skeleton } from
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { OPEN, dateLabel, dateTimeLabel, useRequest, useRequestAction, type RequestDetail } from "./api";
+import { DocumentCard } from "../documents/DocumentCard";
 import { StatusChip, Tracker } from "./parts";
 
 export function Conversation({ request, onSend, sending, error, canWrite, staff = false }: {
@@ -137,7 +138,7 @@ export function RequestDetailPage() {
           <div>
             <p className="m-0 font-medium">Готово</p>
             {data.result_note && <p className="m-0 mt-1 text-[15px]">{data.result_note}</p>}
-            <p className="m-0 mt-1 text-[13px] opacity-80">PDF с QR-кодом проверки появится здесь в следующем обновлении.</p>
+            <a href="#doc-heading" className="mt-2 inline-block text-[15px] font-medium underline">Скачать PDF с QR-кодом</a>
           </div>
         </div>
       )}
@@ -172,6 +173,7 @@ export function RequestDetailPage() {
           )}
         </Card>
         <div className="flex flex-col gap-4">
+          {data.status === "ready" && <DocumentCard requestId={data.id} />}
           <RequestFacts request={data} />
           <Conversation
             request={data}

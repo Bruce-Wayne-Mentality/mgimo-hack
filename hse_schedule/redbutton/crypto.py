@@ -112,6 +112,30 @@ class KeyStore:
     def open(dek: bytes, blob: bytes, aad: str) -> str:
         return AESGCM(dek).decrypt(blob[:12], blob[12:], aad.encode("utf-8")).decode("utf-8")
 
+    # ---- files (attachments): the same keys, bytes instead of text ----------
+
+    def seal_buffer_bytes(self, data: bytes, day: date, aad: str) -> tuple[str, bytes]:
+        """Before acceptance: the key of the day, like the text attempts in the buffer."""
+        key_id = self.day_id(day)
+        nonce = secrets.token_bytes(12)
+        return key_id, nonce + AESGCM(self._key(f"day-{key_id}.key")).encrypt(nonce, data, aad.encode("utf-8"))
+
+    def open_buffer_bytes(self, key_id: str, blob: bytes, aad: str) -> bytes | None:
+        key = self._key(f"day-{key_id}.key", create=False)
+        if key is None:
+            return None  # shredded
+        return AESGCM(key).decrypt(blob[:12], blob[12:], aad.encode("utf-8"))
+
+    @staticmethod
+    def seal_bytes(dek: bytes, data: bytes, aad: str) -> bytes:
+        """After acceptance: the complaint's own key — the same one that encrypts its text."""
+        nonce = secrets.token_bytes(12)
+        return nonce + AESGCM(dek).encrypt(nonce, data, aad.encode("utf-8"))
+
+    @staticmethod
+    def open_bytes(dek: bytes, blob: bytes, aad: str) -> bytes:
+        return AESGCM(dek).decrypt(blob[:12], blob[12:], aad.encode("utf-8"))
+
     # ---- peppers -------------------------------------------------------------
 
     def author_ref(self, user_id) -> str:

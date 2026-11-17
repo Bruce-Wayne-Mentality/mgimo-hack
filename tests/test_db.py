@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from hse_schedule import academics, announcements, booking, calendar_feed, documents, redbutton, schedule_changes, student_requests  # noqa: F401  (registers tables)
 from hse_schedule.assistant import kb  # noqa: F401,E402  (knowledge base tables)
+from hse_schedule.attachments import models as _attachments  # noqa: F401,E402
 from hse_schedule.accounts.models import Faculty, StudyGroup, User
 from hse_schedule.accounts.seed import DEMO_ACCOUNTS, seed_demo
 from hse_schedule.db import Base, Database, async_database_url, uuid7

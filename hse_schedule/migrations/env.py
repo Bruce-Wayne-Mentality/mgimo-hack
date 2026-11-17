@@ -10,6 +10,7 @@ from sqlalchemy.pool import NullPool
 
 from hse_schedule import academics, accounts, announcements, booking, calendar_feed, documents, redbutton, schedule_changes, student_requests  # noqa: F401  (registers models)
 from hse_schedule.assistant import kb  # noqa: F401,E402  (knowledge base tables)
+from hse_schedule.attachments import models as _attachments  # noqa: F401,E402
 from hse_schedule.db import Base, async_database_url, database_url_from_env
 
 config = context.config

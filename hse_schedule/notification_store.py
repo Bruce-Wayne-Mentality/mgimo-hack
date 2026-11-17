@@ -94,6 +94,13 @@ class NotificationStore:
             else:
                 self._db.commit()
 
+    def reset_feed(self) -> None:
+        """Demo reset: forget notifications and snapshots, keep channel settings."""
+        with self._transaction() as db:
+            db.execute("DELETE FROM notification_deliveries")
+            db.execute("DELETE FROM notifications")
+            db.execute("DELETE FROM notification_snapshots")
+
     @staticmethod
     def _notification(row: sqlite3.Row) -> dict:
         return {

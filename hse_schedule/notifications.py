@@ -150,15 +150,21 @@ class NotificationEngine:
                     "schedule_cancelled": "Пара отменена",
                     "schedule_changed": "Расписание изменилось",
                 }
-                if before is not None and after is not None:
+                change = (after or {}).get("change") or {}
+                if change.get("kind") == "cancelled" and before is not None and not (before.get("change") or {}).get("kind") == "cancelled":
+                    kind = "schedule_cancelled"
+                    body = _details(before) + (f". {change['note']}" if change.get("note") else "")
+                elif before is not None and after is not None:
                     body = "Было: " + _details(before) + ". Теперь: " + _details(after)
+                    if change.get("note"):
+                        body += f". {change['note']}"
                 else:
                     body = _details(after if after is not None else before)
                 drafts.append({
                     "kind": kind,
                     "title": titles[kind],
                     "body": body,
-                    "payload": {"before": before, "after": after},
+                    "payload": {"before": before, "after": after, "link": "/schedule"},
                     "event_key": "change:" + _hash([previous["version"], kind, before, after]),
                     "expires_at": (now + timedelta(days=1)).isoformat(),
                 })
@@ -188,6 +194,8 @@ class NotificationEngine:
             for lesson in snapshot["lessons"]:
                 starts = datetime.fromisoformat(lesson["starts_at"])
                 if student.student_oid is None and not set(_groups(lesson)).intersection(student.group_oids):
+                    continue
+                if (lesson.get("change") or {}).get("kind") == "cancelled":
                     continue
                 if starts - timedelta(minutes=10) <= now < starts:
                     drafts.append(_reminder(lesson))

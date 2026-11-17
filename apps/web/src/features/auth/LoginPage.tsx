@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, Eye, EyeOff, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Navigate, useNavigate, useSearchParams } from "react-router";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 import { BrandMark, ConceptNotice, Wordmark } from "@/components/Brand";
 import { Alert, Button, Card, Field, Input } from "@/components/ui";
@@ -194,6 +194,10 @@ export function LoginPage() {
                 </ul>
               </Card>
             )}
+            <Card className="flex flex-col gap-2 text-sm">
+              <p className="m-0 font-medium">Без входа</p>
+              <Link to="/about" className="text-primary hover:underline">О проекте: концепт, безопасность, лицензии</Link>
+            </Card>
             <div className="pt-2">
               <ConceptNotice variant="footer" />
             </div>

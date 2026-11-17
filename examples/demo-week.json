@@ -1,0 +1,927 @@
+{
+  "Count": 34,
+  "StatusCode": {
+    "Code": 0,
+    "Description": "OK"
+  },
+  "Lessons": [
+    {
+      "lessonOid": 300023,
+      "date": "2026.11.16",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Математический анализ",
+      "kindOfWork": "Лекция",
+      "lecturer": "Соколовский Виктор Аркадьевич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Соколовский Виктор Аркадьевич"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-101",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300001,
+      "date": "2026.11.16",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Микроэкономика",
+      "kindOfWork": "Лекция",
+      "lecturer": "Корнилова Тамара Андреевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Корнилова Тамара Андреевна"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "А-301",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300012,
+      "date": "2026.11.16",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Макроэкономика II",
+      "kindOfWork": "Лекция",
+      "lecturer": "Тарасевич Глеб Олегович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Тарасевич Глеб Олегович"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "А-305",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300005,
+      "date": "2026.11.16",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Теория вероятностей и статистика",
+      "kindOfWork": "Лекция",
+      "lecturer": "Луговая Инна Романовна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Луговая Инна Романовна"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "А-210",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300028,
+      "date": "2026.11.16",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Основы программирования",
+      "kindOfWork": "Лекция",
+      "lecturer": "Бережной Тимур Русланович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Бережной Тимур Русланович"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-101",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300016,
+      "date": "2026.11.16",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Маркетинг",
+      "kindOfWork": "Лекция",
+      "lecturer": "Ракитин Всеволод Ильич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Ракитин Всеволод Ильич"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "А-305",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300026,
+      "date": "2026.11.17",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Линейная алгебра и геометрия",
+      "kindOfWork": "Лекция",
+      "lecturer": "Ершова Наталья Петровна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Ершова Наталья Петровна"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-101",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300014,
+      "date": "2026.11.17",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Корпоративные финансы",
+      "kindOfWork": "Лекция",
+      "lecturer": "Мельникова Алла Борисовна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Мельникова Алла Борисовна"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "А-305",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300009,
+      "date": "2026.11.17",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Английский язык (B2)",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Голубева Светлана Витальевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Голубева Светлана Витальевна"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "В-402",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300033,
+      "date": "2026.11.17",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "История России",
+      "kindOfWork": "Лекция",
+      "lecturer": "Арсеньев Кирилл Леонидович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Арсеньев Кирилл Леонидович"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "А-210",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300003,
+      "date": "2026.11.17",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Эконометрика",
+      "kindOfWork": "Лекция",
+      "lecturer": "Веденеев Павел Станиславович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Веденеев Павел Станиславович"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "А-210",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300029,
+      "date": "2026.11.17",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Основы программирования",
+      "kindOfWork": "Лабораторная работа",
+      "lecturer": "Бережной Тимур Русланович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Бережной Тимур Русланович"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "Б-118",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300018,
+      "date": "2026.11.17",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Анализ данных на Python",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Земцов Арсений Дмитриевич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Земцов Арсений Дмитриевич"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "Б-118",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300007,
+      "date": "2026.11.17",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Финансовые рынки и институты",
+      "kindOfWork": "Семинар",
+      "lecturer": "Шестаков Денис Маркович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Шестаков Денис Маркович"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "Б-214",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300024,
+      "date": "2026.11.18",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Математический анализ",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Соколовский Виктор Аркадьевич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Соколовский Виктор Аркадьевич"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-210",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300020,
+      "date": "2026.11.18",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Английский для экономистов",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Голубева Светлана Витальевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Голубева Светлана Витальевна"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "В-405",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300008,
+      "date": "2026.11.18",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Финансовые рынки и институты",
+      "kindOfWork": "Лекция",
+      "lecturer": "Шестаков Денис Маркович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Шестаков Денис Маркович"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "А-301",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300031,
+      "date": "2026.11.18",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Дискретная математика",
+      "kindOfWork": "Семинар",
+      "lecturer": "Хоменко Людмила Ивановна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Хоменко Людмила Ивановна"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-212",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300002,
+      "date": "2026.11.18",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Микроэкономика",
+      "kindOfWork": "Семинар",
+      "lecturer": "Корнилова Тамара Андреевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Корнилова Тамара Андреевна"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "Б-214",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300013,
+      "date": "2026.11.18",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Макроэкономика II",
+      "kindOfWork": "Семинар",
+      "lecturer": "Тарасевич Глеб Олегович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Тарасевич Глеб Олегович"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "Б-220",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300034,
+      "date": "2026.11.19",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Английский язык (B1)",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Пименова Дарья Сергеевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Пименова Дарья Сергеевна"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-404",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300011,
+      "date": "2026.11.19",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "История экономических учений",
+      "kindOfWork": "Лекция",
+      "lecturer": "Арсеньев Кирилл Леонидович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Арсеньев Кирилл Леонидович"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "А-210",
+      "building": "Корпус А (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300027,
+      "date": "2026.11.19",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Линейная алгебра и геометрия",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Ершова Наталья Петровна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Ершова Наталья Петровна"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-212",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300015,
+      "date": "2026.11.19",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Корпоративные финансы",
+      "kindOfWork": "Семинар",
+      "lecturer": "Мельникова Алла Борисовна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Мельникова Алла Борисовна"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "Б-220",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300030,
+      "date": "2026.11.19",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Основы программирования",
+      "kindOfWork": "Лабораторная работа",
+      "lecturer": "Бережной Тимур Русланович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Бережной Тимур Русланович"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "Б-118",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300004,
+      "date": "2026.11.19",
+      "beginLesson": "13:00",
+      "endLesson": "14:20",
+      "discipline": "Эконометрика",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Веденеев Павел Станиславович",
+      "listOfLecturers": [
+        {
+          "lecturer": "Веденеев Павел Станиславович"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "Б-118",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300019,
+      "date": "2026.11.19",
+      "beginLesson": "14:40",
+      "endLesson": "16:00",
+      "discipline": "Анализ данных на Python",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Земцов Арсений Дмитриевич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Земцов Арсений Дмитриевич"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "Б-118",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300022,
+      "date": "2026.11.19",
+      "beginLesson": "16:20",
+      "endLesson": "17:40",
+      "discipline": "Курсовая работа",
+      "kindOfWork": "Консультация",
+      "lecturer": "Мельникова Алла Борисовна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Мельникова Алла Борисовна"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "Б-220",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300032,
+      "date": "2026.11.20",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Дискретная математика",
+      "kindOfWork": "Лекция",
+      "lecturer": "Хоменко Людмила Ивановна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Хоменко Людмила Ивановна"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-101",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300021,
+      "date": "2026.11.20",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Английский для экономистов",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Голубева Светлана Витальевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Голубева Светлана Витальевна"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "В-405",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300006,
+      "date": "2026.11.20",
+      "beginLesson": "09:30",
+      "endLesson": "10:50",
+      "discipline": "Теория вероятностей и статистика",
+      "kindOfWork": "Семинар",
+      "lecturer": "Луговая Инна Романовна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Луговая Инна Романовна"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "Б-205",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300025,
+      "date": "2026.11.20",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Математический анализ",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Соколовский Виктор Аркадьевич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Соколовский Виктор Аркадьевич"
+        }
+      ],
+      "groupOid": 2610,
+      "group": "ПИ-26-1",
+      "listGroups": [
+        {
+          "groupOid": 2610,
+          "group": "ПИ-26-1"
+        }
+      ],
+      "auditorium": "В-210",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300017,
+      "date": "2026.11.20",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Маркетинг",
+      "kindOfWork": "Семинар",
+      "lecturer": "Ракитин Всеволод Ильич",
+      "listOfLecturers": [
+        {
+          "lecturer": "Ракитин Всеволод Ильич"
+        }
+      ],
+      "groupOid": 2410,
+      "group": "ЭК-24-1",
+      "listGroups": [
+        {
+          "groupOid": 2410,
+          "group": "ЭК-24-1"
+        }
+      ],
+      "auditorium": "Б-108",
+      "building": "Корпус Б (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    },
+    {
+      "lessonOid": 300010,
+      "date": "2026.11.20",
+      "beginLesson": "11:10",
+      "endLesson": "12:30",
+      "discipline": "Английский язык (B2)",
+      "kindOfWork": "Практическое занятие",
+      "lecturer": "Голубева Светлана Витальевна",
+      "listOfLecturers": [
+        {
+          "lecturer": "Голубева Светлана Витальевна"
+        }
+      ],
+      "groupOid": 2510,
+      "group": "ЭК-25-1",
+      "listGroups": [
+        {
+          "groupOid": 2510,
+          "group": "ЭК-25-1"
+        }
+      ],
+      "auditorium": "В-402",
+      "building": "Корпус В (вымышленный)",
+      "subGroup": "",
+      "url1": "",
+      "url2": ""
+    }
+  ]
+}

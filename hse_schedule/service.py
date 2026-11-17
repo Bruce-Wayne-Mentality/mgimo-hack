@@ -26,12 +26,31 @@ class ScheduleSource(Protocol):
 
 
 class ScheduleService:
-    def __init__(self, directory: StudentDirectory, source: ScheduleSource) -> None:
+    def __init__(self, directory: StudentDirectory, source: ScheduleSource, overlay=None) -> None:
         self.directory = directory
         self.source = source
         self.timezone = getattr(source, "timezone", "Europe/Moscow")
+        # Deanery edits (moves, cancellations, room changes) applied on top of the source.
+        self.overlay = overlay
 
     def get_schedule(self, email: str, start: date, finish: date) -> tuple[Lesson, ...]:
+        validate_date_range(start, finish)
+        if self.overlay is None or not self.overlay.active:
+            return self._collect(email, start, finish)
+        # A lesson can be moved into or out of the window: look a week around it.
+        lessons: list[Lesson] = []
+        chunk, last = start - timedelta(days=7), finish + timedelta(days=7)
+        while chunk <= last:
+            end = min(last, chunk + timedelta(days=30))
+            lessons += self._collect(email, chunk, end)
+            chunk = end + timedelta(days=1)
+        changed = self.overlay.apply(lessons)
+        return tuple(sorted(
+            (lesson for lesson in changed if start <= lesson.date <= finish),
+            key=lambda lesson: (lesson.starts_at, lesson.ends_at, lesson.title, lesson.id),
+        ))
+
+    def _collect(self, email: str, start: date, finish: date) -> tuple[Lesson, ...]:
         validate_date_range(start, finish)
         student = self.directory.get(email)
         lessons: set[Lesson] = set()

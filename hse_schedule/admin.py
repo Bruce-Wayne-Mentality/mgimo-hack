@@ -24,7 +24,22 @@ ACTION_LABELS = {
 }
 
 
-def register_admin_routes(app: FastAPI, database: Database, store, *, demo: bool, reseed) -> None:
+async def reset_demo_data(database: Database, store, reseed, *, by: str) -> dict:
+    """Wipe every application table and seed the demo again (sessions included)."""
+    async with database.session() as db:
+        for table in reversed(Base.metadata.sorted_tables):
+            await db.execute(delete(table))
+        await db.commit()
+    if store is not None:
+        store.reset_feed()
+    created = await reseed(database)
+    async with database.session() as db:
+        db.add(AuditLog(actor_id=None, action="demo.reset", meta={"by": by}))
+        await db.commit()
+    return created
+
+
+def register_admin_routes(app: FastAPI, database: Database, store, *, demo: bool, reseed, on_reset=None) -> None:
     require_session = app.state.require_session
     app.state.database = database  # lets /health check the database
 
@@ -108,15 +123,9 @@ def register_admin_routes(app: FastAPI, database: Database, store, *, demo: bool
             raise ApiError(404, "not_found", "Не найдено.")
         if current.user.role != "admin":
             raise ApiError(403, "forbidden", "Сбросить демо может только администратор.")
-        async with database.session() as db:
-            for table in reversed(Base.metadata.sorted_tables):
-                await db.execute(delete(table))
-            await db.commit()
-        store.reset_feed()
-        created = await reseed(database)
-        async with database.session() as db:
-            db.add(AuditLog(actor_id=None, action="demo.reset", meta={"by": "admin.demo"}))
-            await db.commit()
+        created = await reset_demo_data(database, store, reseed, by="admin.demo")
+        if on_reset is not None:
+            await on_reset()
         return {"ok": True, "created": {k: v for k, v in created.items() if isinstance(v, int)}}
 
     @app.get("/api/about", tags=["public"])

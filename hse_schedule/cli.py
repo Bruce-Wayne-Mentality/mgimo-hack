@@ -64,6 +64,10 @@ async def _seed_database(database) -> dict:
     created["announcements"] = await seed_announcements(database)
     created["complaints"] = await seed_complaints(database)
     created["resources"] = await seed_booking(database)
+    if DEMO_WEEK.is_file() and DEMO_STUDENTS.is_file():
+        from .schedule_changes import seed_schedule_changes
+
+        created["schedule_changes"] = await seed_schedule_changes(database, _service(DEMO_STUDENTS, DEMO_WEEK, demo=True))
     return created
 
 
@@ -77,7 +81,7 @@ async def _seed(url: str) -> dict:
         await database.dispose()
 
 
-def _modules(database, store, secret: bytes, schedule, request_service, *, demo: bool = False) -> tuple:
+def _modules(database, store, secret: bytes, schedule, request_service, *, demo: bool = False, overlay=None) -> tuple:
     """Route registrations of the feature modules sharing one database and notification store."""
     from datetime import datetime, timezone
 
@@ -91,6 +95,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     from .admin import register_admin_routes
     from .documents.router import register_document_routes
     from .documents.service import DocumentService
+    from .schedule_changes import Overlay, ScheduleChangeService, register_schedule_change_routes
     from .student_id import StudentIdService, register_student_id_routes
 
     def notify(email: str, drafts: list[dict]) -> None:
@@ -104,6 +109,17 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     booking = BookingService(database, schedule, notify=notify)
     calendar = CalendarService(database, schedule, extra_sources=(booking.calendar_events,))
     complaints = ComplaintService(database, notify=notify)
+    overlay = overlay or Overlay()
+    changes = ScheduleChangeService(database, schedule, overlay)
+
+    async def reload_overlay() -> None:
+        from sqlalchemy import select
+
+        from .schedule_changes import LessonChange
+
+        async with database.session() as db:
+            overlay.replace_all(list((await db.scalars(select(LessonChange))).all()))
+
     return (
         lambda app: register_academic_routes(app, academics),
         lambda app: register_document_routes(app, documents),
@@ -113,7 +129,8 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
         lambda app: register_complaint_routes(app, complaints),
         lambda app: register_booking_routes(app, booking),
         lambda app: register_assistant_routes(app, academics, request_service, schedule),
-        lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database),
+        lambda app: register_schedule_change_routes(app, changes),
+        lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database, on_reset=reload_overlay),
     )
 
 
@@ -168,6 +185,10 @@ def main(argv: list[str] | None = None) -> int:
     db_upgrade = commands.add_parser("db-upgrade", help="Применить миграции БД (DATABASE_URL)")
     db_upgrade.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
 
+    reset = commands.add_parser("reset-demo", help="Стереть и заново создать демо-данные (для ночного сброса)")
+    reset.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
+    reset.add_argument("--state-dir", type=Path, default=Path(".local-state"), help="Каталог состояния сервера")
+
     seed = commands.add_parser("seed-demo", help="Создать вымышленные факультеты, группы и тестовые аккаунты")
     seed.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
 
@@ -197,6 +218,28 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "parse":
             lessons = parse_lessons(json.loads(args.input.read_text(encoding="utf-8")))
             _output([lesson.to_dict() for lesson in lessons], args.output)
+        elif args.command == "reset-demo":
+            url = _database_url(args)
+            if not url:
+                raise ConfigurationError("Задайте DATABASE_URL или --database-url.")
+            from .admin import reset_demo_data
+            from .db import Database
+            from .migrate import upgrade
+            from .notification_store import NotificationStore
+
+            upgrade(url)
+            store = NotificationStore(args.state_dir / "demo" / "notifications.sqlite3")
+
+            async def run() -> dict:
+                database = Database(url, pooled=False)
+                try:
+                    return await reset_demo_data(database, store, _seed_database, by="nightly")
+                finally:
+                    await database.dispose()
+
+            created = _run(run())
+            store.close()
+            print(f"Демо-данные сброшены: {created}")
         elif args.command in ("db-upgrade", "seed-demo"):
             url = _database_url(args)
             if not url:
@@ -275,7 +318,12 @@ def main(argv: list[str] | None = None) -> int:
                     notify=lambda email, drafts: store.publish_notifications(email, drafts, datetime.now(timezone.utc)),
                 )
                 secret = _session_secret(state_dir, args.demo)
-                modules = _modules(database, store, secret, service, request_service, demo=args.demo)
+                from .schedule_changes import Overlay
+
+                overlay = Overlay()
+                overlay.load(database_url)
+                service.overlay = overlay
+                modules = _modules(database, store, secret, service, request_service, demo=args.demo, overlay=overlay)
                 auth_settings = AuthSettings(
                     secret=secret,
                     cookie_secure=not args.insecure_cookies,

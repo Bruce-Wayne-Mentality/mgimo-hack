@@ -24,6 +24,7 @@ import { RequestsPage } from "@/features/requests/RequestsPage";
 import { SchedulePage } from "@/features/schedule/SchedulePage";
 import { SituationPage, SituationsPage } from "@/features/situations/SituationPages";
 import { GradebookGroupsPage, GradebookPage } from "@/features/staff/GradebookPages";
+import { ScheduleEditorPage } from "@/features/staff/ScheduleEditorPage";
 import { AuditPage, StaffAnnouncementsPage } from "@/features/staff/StaffPages";
 import { StaffRequestPage, StaffRequestsPage } from "@/features/staff/StaffRequestsPage";
 import { DisciplinePage } from "@/features/study/DisciplinePage";
@@ -80,6 +81,7 @@ export const routes: RouteObject[] = [
               { path: "staff/grades/:id", element: <GradebookPage /> },
               { path: "staff/announcements", element: <StaffAnnouncementsPage /> },
               { path: "staff/check", element: <ScanPage /> },
+              { path: "staff/schedule", element: <ScheduleEditorPage /> },
             ],
           },
           {

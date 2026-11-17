@@ -39,7 +39,8 @@ NUDGE_RULES = {
     "RISK_UP": "Риск по дисциплине",
     "DEADLINE_3D": "Скоро дедлайн",
     "SESSION_14D": "Скоро сессия",
-    "REQ_STALE": "Деканат ждёт ответа",
+    "REQ_STALE": "Заявка",
+    "BOOKING_SOON": "Бронирование",
 }
 NUDGES_PER_DAY = 2
 
@@ -567,6 +568,20 @@ class AcademicService:
                         "text": f"По заявке {request.number} нужны уточнения — без ответа она не движется.",
                         "action": {"label": "Ответить", "link": f"/requests/{request.id}"}, "priority": 0,
                     })
+            from ..booking import Booking
+
+            soon = list((await db.scalars(select(Booking).where(
+                Booking.user_id == user.id, Booking.status == "active",
+                Booking.starts_at > now, Booking.starts_at <= now + timedelta(minutes=30),
+            ))).unique().all())
+            for booking in soon:
+                minutes = max(1, int((booking.starts_at - now).total_seconds() // 60))
+                candidates.append({
+                    "rule": "BOOKING_SOON", "key": f"BOOKING_SOON:{booking.id}",
+                    "title": f"Бронь через {minutes} мин: {booking.resource.title}",
+                    "text": "Отметьтесь «Я на месте» — без отметки через 15 минут после начала бронь освободится.",
+                    "action": {"label": "Мои брони", "link": "/booking"}, "priority": 0,
+                })
             existing = {
                 row.dedup_key: row for row in (await db.scalars(select(Nudge).where(Nudge.student_id == student.id))).all()
             }

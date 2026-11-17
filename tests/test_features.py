@@ -82,12 +82,17 @@ class FeatureTestCase(unittest.TestCase):
         asyncio.run(_seed_database(cls.database))
         cls.store = NotificationStore(cls.temporary / "notifications.sqlite3")
         schedule = _service(DEMO_STUDENTS, DEMO_WEEK, demo=True)
+        from hse_schedule.schedule_changes import Overlay
+
+        overlay = Overlay()
+        overlay.load(cls.url)
+        schedule.overlay = overlay
         requests = RequestService(cls.database)
         cls.app = create_app(
             schedule, {}, demo=True, auth=AuthService(cls.database),
             auth_settings=AuthSettings(secret=b"s" * 40, demo=True), demo_accounts=DEMO_ACCOUNTS,
             request_service=requests, notification_store=cls.store,
-            modules=_modules(cls.database, cls.store, b"s" * 40, schedule, requests, demo=True),
+            modules=_modules(cls.database, cls.store, b"s" * 40, schedule, requests, demo=True, overlay=overlay),
         )
         cls._clients = {}
 
@@ -418,6 +423,52 @@ class BookingTests(FeatureTestCase):
 
         with self.assertRaises(IntegrityError):
             asyncio.run(insert_twice())
+
+
+class ScheduleChangeTests(FeatureTestCase):
+    def monday(self):
+        today = date.today()
+        return today - timedelta(days=today.weekday())
+
+    def test_seeded_change_is_visible_to_the_student(self):
+        start = self.monday()
+        lessons = self.client().get("/api/me/schedule", params={"start": start.isoformat(), "finish": (start + timedelta(days=13)).isoformat()}).json()["lessons"]
+        kinds = {lesson["change"]["kind"] for lesson in lessons if lesson.get("change")}
+        self.assertIn("moved", kinds)
+        moved = next(lesson for lesson in lessons if (lesson.get("change") or {}).get("kind") == "moved")
+        self.assertNotEqual(moved["change"]["was_starts_at"], moved["starts_at"])
+
+    def test_staff_cancel_revert_and_scope(self):
+        staff = self.client(STAFF)
+        start = self.monday() + timedelta(days=7)
+        week = staff.get("/api/staff/schedule", params={"group": "ЭК-24-1", "start": start.isoformat()}).json()
+        lesson = next(item for item in week["lessons"] if not item.get("change"))
+        created = staff.post("/api/staff/schedule/changes", json={"lesson_id": lesson["id"], "group": "ЭК-24-1", "kind": "cancelled", "note": "Тест"})
+        self.assertEqual(created.status_code, 201, created.text)
+        boris = self.client(BORIS).get("/api/me/schedule", params={"start": lesson["date"], "finish": lesson["date"]}).json()["lessons"]
+        self.assertEqual(next(item for item in boris if item["id"] == lesson["id"])["change"]["kind"], "cancelled")
+        again = staff.post("/api/staff/schedule/changes", json={"lesson_id": lesson["id"], "group": "ЭК-24-1", "kind": "room", "new_room": "Б-1"})
+        self.assertEqual(again.status_code, 409)
+        self.assertEqual(staff.delete(f"/api/staff/schedule/changes/{created.json()['id']}").status_code, 204)
+        boris = self.client(BORIS).get("/api/me/schedule", params={"start": lesson["date"], "finish": lesson["date"]}).json()["lessons"]
+        self.assertIsNone(next(item for item in boris if item["id"] == lesson["id"]).get("change"))
+        # Another faculty's group and students are refused.
+        self.assertEqual(staff.get("/api/staff/schedule", params={"group": "ПИ-26-1", "start": start.isoformat()}).status_code, 404)
+        self.assertEqual(self.client(BORIS).get("/api/staff/schedule", params={"group": "ЭК-24-1", "start": start.isoformat()}).status_code, 403)
+
+    def test_move_needs_time_and_stays_within_a_week(self):
+        staff = self.client(STAFF)
+        start = self.monday() + timedelta(days=7)
+        lesson = next(item for item in staff.get("/api/staff/schedule", params={"group": "ЭК-25-1", "start": start.isoformat()}).json()["lessons"] if not item.get("change"))
+        base = {"lesson_id": lesson["id"], "group": "ЭК-25-1", "kind": "moved"}
+        self.assertEqual(staff.post("/api/staff/schedule/changes", json=base).status_code, 422)
+        far = (date.fromisoformat(lesson["date"]) + timedelta(days=10)).isoformat()
+        self.assertEqual(staff.post("/api/staff/schedule/changes", json={**base, "new_date": far, "new_start": "10:00"}).status_code, 422)
+        moved = staff.post("/api/staff/schedule/changes", json={**base, "new_date": lesson["date"], "new_start": "18:10", "new_room": "А-101"})
+        self.assertEqual(moved.status_code, 201, moved.text)
+        anna = self.client().get("/api/me/schedule", params={"start": lesson["date"], "finish": lesson["date"]}).json()["lessons"]
+        changed = next(item for item in anna if item["id"] == lesson["id"])
+        self.assertEqual((changed["room"], changed["change"]["was_room"]), ("А-101", lesson["room"]))
 
 
 if __name__ == "__main__":

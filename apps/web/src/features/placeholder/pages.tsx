@@ -72,6 +72,7 @@ export function MorePage() {
   const staff: Entry[] = [
     { to: "/staff/requests", label: "Очередь заявок", hint: "По сроку, с подсветкой просрочки", icon: ClipboardList },
     { to: "/staff/grades", label: "Журнал оценок", hint: "Баллы и светофор групп", icon: BookOpenCheck },
+    { to: "/staff/schedule", label: "Расписание групп", hint: "Перенос, отмена, замена аудитории", icon: CalendarRange },
     { to: "/staff/announcements", label: "Объявления", hint: "Группе, курсу или факультету", icon: Megaphone },
     { to: "/staff/check", label: "Проверить QR", hint: "Студенческий билет или справка", icon: ScanLine },
     { to: "/booking", label: "Брони и загрузка", hint: "Тепловая карта и отмена броней", icon: DoorOpen },

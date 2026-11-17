@@ -116,6 +116,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     from .academics.service import AcademicService
     from .announcements import AnnouncementService, register_announcement_routes
     from .assistant.router import register_assistant_routes
+    from .assistant.kb.router import register_kb_routes
     from .booking import BookingService, register_booking_routes
     from .calendar_feed import CalendarService, register_calendar_routes
     from .gigachat import GigaChat
@@ -160,6 +161,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
         lambda app: register_redbutton_routes(app, redbutton),
         lambda app: register_booking_routes(app, booking),
         lambda app: register_assistant_routes(app, academics, request_service, schedule, database),
+        lambda app: register_kb_routes(app, database),
         lambda app: register_schedule_change_routes(app, changes),
         lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database,
                                           on_reset=lambda: _after_reset(app, reload_overlay, database)),

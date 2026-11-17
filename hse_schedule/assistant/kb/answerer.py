@@ -33,6 +33,7 @@ LONG_DIGITS = re.compile(r"\b\d[\d\s-]{6,}\d\b")  # record book, passport, card 
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 LINK = re.compile(r"(https?://\S+|www\.\S+|\S+@\S+\.\w+|/[a-z][\w/-]{2,})", re.IGNORECASE)
 MAX_ANSWER = 900
+LABEL = re.compile(r"s\s*(\d+)", re.IGNORECASE)
 TIMEOUT = 12.0
 REWRITE_TIMEOUT = 6.0
 _rewrites: OrderedDict[str, str] = OrderedDict()  # masked question → terms; the same question costs one call
@@ -80,6 +81,23 @@ def _source(hit: Hit) -> dict:
     f = hit.fragment
     return {"id": f.doc_id, "doc_id": f.doc_id, "title": f.title, "section_path": f.section_path, "page": f.page,
             "chunk_id": str(f.id), "excerpt": f.body[:700]}
+
+
+def normalize_labels(used) -> list[str]:
+    """«@S1», «[S1]», «s1», «источник S1» → «S1»; empty strings dropped. Seen from GigaChat-2-Max."""
+    labels = []
+    for item in used or []:
+        match = LABEL.search(str(item))
+        if match:
+            labels.append(f"S{int(match.group(1))}")
+    return list(dict.fromkeys(labels))
+
+
+def answer_schema(labels: list[str]) -> dict:
+    """The answer schema with used_sources limited to the labels actually sent."""
+    schema = {**prompts.SCHEMA, "properties": dict(prompts.SCHEMA["properties"])}
+    schema["properties"]["used_sources"] = {"type": "array", "items": {"type": "string", "enum": labels}}
+    return schema
 
 
 def check_answer(answer: str, used: list[str], sources: dict[str, Hit]) -> str | None:
@@ -148,11 +166,11 @@ async def answer_from_kb(question: str, retriever: Retriever, gigachat, database
         user = prompts.user_message(masked, [(label, h.fragment.text, h.fragment.priority) for label, h in by_id.items()])
         try:
             answer = await asyncio.wait_for(
-                gigachat.chat_json(prompts.SYSTEM, user, prompts.SCHEMA, name="answer", temperature=0.1, max_tokens=700),
+                gigachat.chat_json(prompts.SYSTEM, user, answer_schema(list(by_id)), name="answer", temperature=0.1, max_tokens=700),
                 timeout=TIMEOUT)
             data = answer.data if isinstance(answer.data, dict) else {}
             text = data.get("answer") if isinstance(data.get("answer"), str) else ""
-            used = [str(x) for x in data.get("used_sources") or [] if isinstance(x, (str, int))]
+            used = normalize_labels(data.get("used_sources"))
             if data.get("answerable") is False:
                 reason = "model_not_answerable"
             else:

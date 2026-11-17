@@ -13,6 +13,9 @@ from ..accounts.service import CurrentSession
 from ..gigachat import GigaChat
 from ..ratelimit import RateLimiter
 from . import engine
+from .kb import rag_enabled
+from .kb.answerer import answer_from_kb, mask_question
+from .kb.retriever import Retriever
 
 
 class Turn(BaseModel):
@@ -34,10 +37,24 @@ class HandoffBody(BaseModel):
     transcript: list[Turn] = Field(default_factory=list, max_length=20)
 
 
-def register_assistant_routes(app: FastAPI, academics, requests_service, schedule) -> None:
+def register_assistant_routes(app: FastAPI, academics, requests_service, schedule, database=None) -> None:
     require_session = app.state.require_session
     limit = RateLimiter(limit=30, window=60)
     giga = GigaChat.from_env()
+    retriever = Retriever(giga)  # vectors only when the base has them; otherwise BM25 without calling GigaChat
+    app.state.kb_retriever = retriever
+    loaded = {"done": False}
+    lock = asyncio.Lock()
+
+    async def knowledge_base() -> Retriever | None:
+        if database is None:
+            return None
+        if not loaded["done"]:
+            async with lock:
+                if not loaded["done"]:
+                    await retriever.reload(database)
+                    loaded["done"] = True
+        return retriever if retriever.size else None
 
     from ..student_requests.router import summary_payload
 
@@ -69,12 +86,24 @@ def register_assistant_routes(app: FastAPI, academics, requests_service, schedul
     async def ask(body: AskBody, request: Request, current: CurrentSession = Depends(require_session)) -> dict:
         student(current)
         limit.check(request, "assistant", str(current.user.id))
-        reply = engine.answer(body.message, await context(current), about=body.about, intent=body.intent)
+        ctx = await context(current)
+        names = (current.user.display_name or "").split()
+        reply = engine.answer(body.message, ctx, about=body.about, intent=body.intent, kb=rag_enabled() and database is not None)
+        if reply.kind == "kb_search":
+            kb = await knowledge_base()
+            if kb is None:  # empty or missing base: the 15 built-in rules are the reserve
+                reply = engine.answer(body.message, ctx, about=body.about, intent=body.intent)
+            else:
+                found = await answer_from_kb(body.message, kb, giga, database, names=names, handoff_text=body.message)
+                return {"text": found.text, "kind": found.kind, "sources": found.sources, "actions": reply.actions + found.actions,
+                        "facts": [], "engine": "rag", "rag_mode": found.mode}
         data = reply.to_dict()
         data["engine"] = "rules"
-        if giga and reply.kind in ("rule", "me"):
+        # Only rule texts are rephrased, and only with the masked question: answers «about me»
+        # carry grades, requests and the schedule, which never leave the server.
+        if giga and reply.kind == "rule":
             try:
-                text = await asyncio.wait_for(giga.rephrase(body.message, reply.text), timeout=9)
+                text = await asyncio.wait_for(giga.rephrase(mask_question(body.message, names), reply.text), timeout=9)
                 if text:
                     data["text"], data["engine"] = text, "gigachat"
             except Exception:

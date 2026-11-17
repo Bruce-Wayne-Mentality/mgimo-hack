@@ -25,10 +25,23 @@ ACTION_LABELS = {
 
 
 async def reset_demo_data(database: Database, store, reseed, *, by: str) -> dict:
-    """Wipe every application table and seed the demo again (sessions included)."""
+    """Wipe every application table and seed the demo again (sessions included).
+
+    The knowledge base is content, not demo data: its documents, fragments and
+    paid-for vectors survive the reset. Only answers published by staff from the
+    gaps queue and the queue itself are demo activity and are wiped.
+    """
+    from .assistant.kb import STAFF_DOC
+    from .assistant.kb.models import KbChunk, KbDocument
+
+    keep = {KbDocument.__tablename__, KbChunk.__tablename__}
     async with database.session() as db:
+        staff_docs = select(KbDocument.id).where(KbDocument.doc_id == STAFF_DOC)
+        await db.execute(delete(KbChunk).where(KbChunk.document_id.in_(staff_docs)))
+        await db.execute(delete(KbDocument).where(KbDocument.doc_id == STAFF_DOC))
         for table in reversed(Base.metadata.sorted_tables):
-            await db.execute(delete(table))
+            if table.name not in keep:
+                await db.execute(delete(table))
         await db.commit()
     if store is not None:
         store.reset_feed()

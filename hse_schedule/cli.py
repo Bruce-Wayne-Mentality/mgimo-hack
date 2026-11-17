@@ -64,11 +64,38 @@ async def _seed_database(database) -> dict:
     created["announcements"] = await seed_announcements(database)
     created["complaints"] = await seed_redbutton(database)
     created["resources"] = await seed_booking(database)
+    created["knowledge_base"] = await _seed_knowledge_base(database)
     if DEMO_WEEK.is_file() and DEMO_STUDENTS.is_file():
         from .schedule_changes import seed_schedule_changes
 
         created["schedule_changes"] = await seed_schedule_changes(database, _service(DEMO_STUDENTS, DEMO_WEEK, demo=True))
     return created
+
+
+async def _seed_knowledge_base(database) -> str:
+    """With RAG_ENABLED the demo builds the assistant's knowledge base from rag_test_data (idempotent)."""
+    from .assistant.kb import manifest_path, rag_enabled
+
+    if not rag_enabled():
+        return "off"
+    manifest = manifest_path()
+    if not manifest.is_file():
+        return f"нет {manifest}"
+    from .assistant.kb.ingest import ingest_manifest
+
+    try:
+        async with database.session() as db:
+            report = await ingest_manifest(db, manifest)
+    except ImportError:
+        return "нужны pdfplumber и beautifulsoup4: pip install -e .[kb]"
+    return f"{len(report)} документов, переиндексировано {sum(r['status'] == 'indexed' for r in report)}"
+
+
+async def _after_reset(app, reload_overlay, database) -> None:
+    await reload_overlay()
+    retriever = getattr(app.state, "kb_retriever", None)
+    if retriever is not None:
+        await retriever.reload(database)
 
 
 async def _seed(url: str) -> dict:
@@ -132,9 +159,10 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
         lambda app: register_calendar_routes(app, calendar),
         lambda app: register_redbutton_routes(app, redbutton),
         lambda app: register_booking_routes(app, booking),
-        lambda app: register_assistant_routes(app, academics, request_service, schedule),
+        lambda app: register_assistant_routes(app, academics, request_service, schedule, database),
         lambda app: register_schedule_change_routes(app, changes),
-        lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database, on_reset=reload_overlay),
+        lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database,
+                                          on_reset=lambda: _after_reset(app, reload_overlay, database)),
     )
 
 

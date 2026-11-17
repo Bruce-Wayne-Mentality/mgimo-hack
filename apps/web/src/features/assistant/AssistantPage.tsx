@@ -1,17 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowUp, BookOpen, Bot, FileText, Headset, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, FileText, Headset, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Alert, Button, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { KbBadge, ReplySkeleton, SourceCards, type Source } from "./Sources";
 
 type Action =
   | { kind: "link"; label: string; link: string }
   | { kind: "draft"; label: string; type: string; payload: Record<string, string | number> }
   | { kind: "handoff"; label: string; summary: string };
 
-type Reply = { text: string; kind: string; sources: { id: string; title: string }[]; actions: Action[]; engine?: string };
+type Reply = { text: string; kind: string; sources: Source[]; actions: Action[]; engine?: string };
 type Message = { id: string; role: "user" | "assistant"; text: string; reply?: Reply; handoff?: { number: string; link: string } };
 type Info = { disclaimer: string; suggestions: string[]; engine: string; engine_label: string };
 
@@ -29,6 +30,7 @@ export function AssistantPage() {
   const info = useQuery({ queryKey: ["assistant"], queryFn: () => api<Info>("/api/assistant"), staleTime: Infinity });
   const [messages, setMessages] = useState<Message[]>(load);
   const [text, setText] = useState("");
+  const [last, setLast] = useState<{ message: string; about?: string; intent?: string } | null>(null);
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const bottom = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function AssistantPage() {
     if (!clean || ask.isPending) return;
     setMessages((list) => [...list, { id: crypto.randomUUID(), role: "user", text: clean }]);
     setText("");
+    setLast({ message: clean, ...extra });
     ask.mutate({ message: clean, ...extra });
   };
 
@@ -118,12 +121,9 @@ export function AssistantPage() {
         {messages.map((message) => (
           <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
             <div className={cn("max-w-[88%] rounded-[20px] px-4 py-3 sm:max-w-[75%]", message.role === "user" ? "rounded-br-md bg-primary text-on-primary" : "rounded-bl-md bg-surface shadow-k-card")}>
-              <p className="m-0 text-[15px] whitespace-pre-line">{message.text}</p>
-              {message.reply && message.reply.sources.length > 0 && (
-                <p className="caption m-0 mt-2 flex flex-wrap items-center gap-1.5">
-                  <BookOpen aria-hidden className="size-3.5" /> Источник: {message.reply.sources.map((source) => source.title).join(", ")}
-                </p>
-              )}
+              {message.reply && <KbBadge kind={message.reply.kind} />}
+              <p className="m-0 text-[15px] break-words whitespace-pre-line">{message.text}</p>
+              {message.reply && <SourceCards sources={message.reply.sources} />}
               {message.reply && message.reply.actions.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {message.reply.actions.map((action, index) =>
@@ -151,8 +151,17 @@ export function AssistantPage() {
             </div>
           </div>
         ))}
-        {ask.isPending && <div className="w-24 animate-pulse rounded-[20px] bg-surface px-4 py-3 text-muted shadow-k-card">…</div>}
-        {ask.isError && <Alert>{ask.error.message}</Alert>}
+        {ask.isPending && <ReplySkeleton />}
+        {ask.isError && (
+          <Alert>
+            <span className="block">Ответ не пришёл: {ask.error.message}. Проверьте соединение и повторите.</span>
+            {last && (
+              <button onClick={() => ask.mutate(last)} className="soft mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-[10px] bg-surface px-3 text-sm font-medium text-text hover:bg-primary-soft">
+                <RotateCcw aria-hidden className="size-4" /> Повторить
+              </button>
+            )}
+          </Alert>
+        )}
         {handoff.isError && <Alert>{handoff.error.message}</Alert>}
         <div ref={bottom} />
       </div>

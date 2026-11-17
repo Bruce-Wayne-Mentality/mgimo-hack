@@ -33,6 +33,7 @@ const ScheduleEditorPage = lazy(() => import("@/features/staff/ScheduleEditorPag
 const AuditPage = lazy(() => import("@/features/staff/StaffPages").then((module) => ({ default: module.AuditPage })));
 const StaffAnnouncementsPage = lazy(() => import("@/features/staff/StaffPages").then((module) => ({ default: module.StaffAnnouncementsPage })));
 const StaffRequestPage = lazy(() => import("@/features/staff/StaffRequestsPage").then((module) => ({ default: module.StaffRequestPage })));
+const KbGapsPage = lazy(() => import("@/features/staff/KbGapsPage").then((module) => ({ default: module.KbGapsPage })));
 const StaffRequestsPage = lazy(() => import("@/features/staff/StaffRequestsPage").then((module) => ({ default: module.StaffRequestsPage })));
 const DisciplinePage = lazy(() => import("@/features/study/DisciplinePage").then((module) => ({ default: module.DisciplinePage })));
 const StudyPage = lazy(() => import("@/features/study/StudyPage").then((module) => ({ default: module.StudyPage })));
@@ -90,6 +91,7 @@ export const routes: RouteObject[] = [
               { path: "staff/complaints", element: <Lazy><StaffComplaintsPage /></Lazy> },
               { path: "staff/complaints/:id", element: <Lazy><StaffComplaintPage /></Lazy> },
               { path: "staff/moderation", element: <Lazy><ModerationPage /></Lazy> },
+              { path: "staff/kb-gaps", element: <Lazy><KbGapsPage /></Lazy> },
             ],
           },
           {

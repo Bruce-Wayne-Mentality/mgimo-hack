@@ -75,6 +75,7 @@ export function MorePage() {
     { to: "/staff/schedule", label: "Расписание групп", hint: "Перенос, отмена, замена аудитории", icon: CalendarRange },
     { to: "/staff/announcements", label: "Объявления", hint: "Группе, курсу или факультету", icon: Megaphone },
     { to: "/staff/check", label: "Проверить QR", hint: "Студенческий билет или справка", icon: ScanLine },
+    { to: "/staff/kb-gaps", label: "Пробелы базы", hint: "Вопросы, на которые ассистент не нашёл ответа", icon: Bot },
     { to: "/booking", label: "Брони и загрузка", hint: "Тепловая карта и отмена броней", icon: DoorOpen },
     { to: "/staff/complaints", label: "Обращения", hint: "Красная кнопка: очередь исполнителя", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
   ];

@@ -160,6 +160,66 @@ def _service(students: Path, fixture: Path | None, *, demo: bool = False):
     return ScheduleService(StudentDirectory.from_file(students), source)
 
 
+def _kb_database_url(args) -> str:
+    url = _database_url(args)
+    if url:
+        return url
+    state_dir = args.state_dir / "demo"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{(state_dir / 'app.sqlite3').resolve().as_posix()}"
+
+
+def _kb_command(args) -> int:
+    from .assistant.kb import commands as kb
+    from .db import Database
+    from .gigachat import GigaChat, GigaChatUnavailable
+    from .migrate import upgrade
+
+    url = _kb_database_url(args)
+    upgrade(url)
+
+    async def run():
+        database = Database(url, pooled=False)
+        try:
+            if args.command == "kb-build":
+                return await kb.build(database, args.manifest)
+            if args.command == "kb-embed":
+                giga = GigaChat.from_env()
+                if giga is None:
+                    return None
+                return await kb.embed(database, giga, force=args.force, limit=args.limit)
+            return await kb.stats(database)
+        finally:
+            await database.dispose()
+
+    try:
+        result = _run(run())
+    except GigaChatUnavailable as error:
+        print(f"GigaChat недоступен ({error}). Уже посчитанные векторы сохранены; повторите kb-embed позже.")
+        return 1
+    if args.command == "kb-build":
+        for row in result:
+            if row["status"] == "unchanged":
+                print(f"{row['doc_id']:<13} без изменений")
+            else:
+                share = row["tables"] / row["chunks"] * 100
+                print(f"{row['doc_id']:<13} фрагментов: {row['chunks']:>3}, таблиц: {row['tables']} ({share:.0f}%)")
+        indexed = [r for r in result if r["status"] == "indexed"]
+        print(f"Документов: {len(result)}, переиндексировано: {len(indexed)}, фрагментов в них: {sum(r['chunks'] for r in indexed)}")
+    elif args.command == "kb-embed":
+        if result is None:
+            print("Ключ не задан (GIGACHAT_CREDENTIALS) — эмбеддинги не считались; поиск работает по BM25.")
+        else:
+            print(f"Посчитано векторов: {result['embedded']} (модель {result['model']})")
+    else:
+        docs = ", ".join(f"{k}: {v}" for k, v in sorted(result["documents"].items())) or "нет"
+        models = ", ".join(f"{k}: {v}" for k, v in result["models"].items()) or "—"
+        print(f"Документы — {docs}")
+        print(f"Фрагментов: {result['chunks']}, с эмбеддингом: {result['embedded']} ({models})")
+        print(f"Открытых пробелов базы: {result['open_gaps']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Расписание ВШЭ и API личного кабинета учебного офиса")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -198,6 +258,20 @@ def main(argv: list[str] | None = None) -> int:
 
     probe = commands.add_parser("gigachat-probe", help="Пробный вызов эмбеддингов GigaChat: модель, размерность, время")
     probe.add_argument("--model", help="По умолчанию GIGACHAT_EMBED_MODEL или Embeddings")
+
+    def kb_db(command) -> None:
+        command.add_argument("--database-url", help="По умолчанию DATABASE_URL, иначе SQLite демо-режима в --state-dir")
+        command.add_argument("--state-dir", type=Path, default=Path(".local-state"), help="Каталог состояния (для демо-SQLite)")
+
+    kb_build = commands.add_parser("kb-build", help="База знаний ассистента: разбор и нарезка документов (без эмбеддингов)")
+    kb_build.add_argument("--manifest", type=Path, default=Path("rag_test_data/manifest.json"))
+    kb_db(kb_build)
+    kb_embed = commands.add_parser("kb-embed", help="База знаний: эмбеддинги фрагментов через GigaChat")
+    kb_embed.add_argument("--force", action="store_true", help="Пересчитать все векторы")
+    kb_embed.add_argument("--limit", type=int, help="Не больше N фрагментов за запуск")
+    kb_db(kb_embed)
+    kb_stats = commands.add_parser("kb-stats", help="База знаний: документы, фрагменты, векторы, открытые пробелы")
+    kb_db(kb_stats)
 
     serve = commands.add_parser("serve", help="Запустить API и личный кабинет")
     serve.add_argument("--demo", action="store_true", help="Синтетическое расписание и тестовые аккаунты для жюри")
@@ -248,6 +322,8 @@ def main(argv: list[str] | None = None) -> int:
             created = _run(run())
             store.close()
             print(f"Демо-данные сброшены: {created}")
+        elif args.command in ("kb-build", "kb-embed", "kb-stats"):
+            return _kb_command(args)
         elif args.command == "gigachat-probe":
             from .gigachat import GigaChat, GigaChatUnavailable, probe
 

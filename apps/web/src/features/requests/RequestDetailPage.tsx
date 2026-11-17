@@ -144,7 +144,7 @@ export function RequestDetailPage() {
       )}
       {data.status === "rejected" && lastNote && <Alert>Причина отказа: {lastNote}</Alert>}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <Card aria-labelledby="track-heading">
           <CardTitle id="track-heading">Ход заявки</CardTitle>
           <Tracker request={data} />

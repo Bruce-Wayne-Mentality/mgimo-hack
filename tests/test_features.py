@@ -331,5 +331,94 @@ class AssistantAdminTests(FeatureTestCase):
         self.assertEqual(self.client(STAFF).post("/api/admin/demo-reset").status_code, 403)
 
 
+class BookingTests(FeatureTestCase):
+    def slot(self, days=2, hour=10, minute=0):
+        from datetime import datetime, time
+        from zoneinfo import ZoneInfo
+
+        day = datetime.now(ZoneInfo("Europe/Moscow")).date() + timedelta(days=days)
+        return datetime.combine(day, time(hour, minute), tzinfo=ZoneInfo("Europe/Moscow"))
+
+    def resource(self, code):
+        items = self.client(VERA).get("/api/resources", params={"date": self.slot().date().isoformat()}).json()["items"]
+        return next(item for item in items if item["code"] == code)
+
+    def test_book_conflict_cancel_and_idor(self):
+        room = self.resource("QUIET-LIB")
+        body = {"resource_id": room["id"], "starts_at": self.slot().isoformat(), "minutes": 60}
+        created = self.client(VERA).post("/api/bookings", json=body)
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertEqual(self.client(BORIS).post("/api/bookings", json=body).status_code, 409)
+        shifted = {**body, "starts_at": self.slot(minute=30).isoformat()}
+        self.assertEqual(self.client(BORIS).post("/api/bookings", json=shifted).status_code, 409)
+        slots = {s["starts_at"]: s for s in self.resource("QUIET-LIB")["slots"]}
+        self.assertFalse(slots[self.slot().isoformat()]["free"])
+        booking = created.json()["id"]
+        self.assertEqual(self.client(BORIS).post(f"/api/bookings/{booking}/cancel").status_code, 404)
+        self.assertEqual(self.client(VERA).post(f"/api/bookings/{booking}/cancel").json()["status"], "cancelled")
+        self.assertEqual(self.client(BORIS).post("/api/bookings", json=body).status_code, 201)
+
+    def test_rules_and_limits(self):
+        room = self.resource("COWORK-ATRIUM")
+        bad_grid = {"resource_id": room["id"], "starts_at": self.slot(days=3, minute=15).isoformat(), "minutes": 60}
+        self.assertEqual(self.client(VERA).post("/api/bookings", json=bad_grid).status_code, 422)
+        too_far = {"resource_id": room["id"], "starts_at": self.slot(days=20).isoformat(), "minutes": 60}
+        self.assertEqual(self.client(VERA).post("/api/bookings", json=too_far).status_code, 422)
+        after_hours = {"resource_id": room["id"], "starts_at": self.slot(days=3, hour=21, minute=30).isoformat(), "minutes": 60}
+        self.assertEqual(self.client(VERA).post("/api/bookings", json=after_hours).status_code, 422)
+        active = sum(1 for b in self.client(VERA).get("/api/bookings").json()["items"] if b["status"] == "active")
+        codes = [self.client(VERA).post("/api/bookings", json={"resource_id": room["id"], "starts_at": self.slot(days=4 + i, hour=9).isoformat(), "minutes": 30}).status_code
+                 for i in range(4 - active)]
+        self.assertEqual(codes, [201] * (3 - active) + [409])  # ≤ 3 active future bookings
+        self.assertEqual(self.client(STAFF).post("/api/bookings", json=bad_grid).status_code, 403)
+
+    def test_lessons_block_classrooms_and_heatmap(self):
+        heat = self.client(STAFF).get("/api/resources/heatmap").json()
+        self.assertEqual(len(heat["hours"]), 14)
+        self.assertTrue(all(0 <= cell <= 1 for row in heat["rows"] for cell in row["cells"]))
+        day = next(d for d in range(1, 8) if (date.today() + timedelta(days=d)).weekday() == 0)
+        items = self.client(VERA).get("/api/resources", params={"date": (date.today() + timedelta(days=day)).isoformat()}).json()["items"]
+        classroom = next(item for item in items if item["code"] == "A-210")
+        self.assertTrue(any(slot["reason"] == "lesson" for slot in classroom["slots"]))
+
+    def test_concurrent_requests_give_one_booking(self):
+        from hse_schedule.accounts.models import User
+        from hse_schedule.booking import BookBody, BookingService
+
+        service = BookingService(self.database)
+        room = self.resource("MEET-214")
+        body = BookBody(resource_id=room["id"], starts_at=self.slot(days=6, hour=12), minutes=60)
+
+        async def race():
+            async with self.database.session() as db:
+                users = {u.login: u for u in (await db.scalars(select(User).where(User.login.in_(["student.vera", "student.boris"])))).all()}
+            return await asyncio.gather(service.book(users["student.vera"], body), service.book(users["student.boris"], body),
+                                        return_exceptions=True)
+
+        results = asyncio.run(race())
+        self.assertEqual(sum(1 for r in results if isinstance(r, dict)), 1, results)
+
+    @unittest.skipUnless(os.environ.get("TEST_DATABASE_URL"), "exclusion constraint exists only in PostgreSQL")
+    def test_database_rejects_overlap_without_the_code_check(self):
+        from sqlalchemy.exc import IntegrityError
+
+        from hse_schedule.accounts.models import User
+        from hse_schedule.booking import Booking, Resource
+
+        async def insert_twice():
+            async with self.database.session() as db:
+                resource = await db.scalar(select(Resource).where(Resource.code == "QUIET-LIB"))
+                user = await db.scalar(select(User).where(User.login == "student.anna"))
+                start = self.slot(days=9, hour=11)
+                db.add(Booking(resource_id=resource.id, user_id=user.id, starts_at=start, ends_at=start + timedelta(hours=1)))
+                await db.commit()
+                db.add(Booking(resource_id=resource.id, user_id=user.id, starts_at=start + timedelta(minutes=30),
+                               ends_at=start + timedelta(hours=2)))
+                await db.commit()
+
+        with self.assertRaises(IntegrityError):
+            asyncio.run(insert_twice())
+
+
 if __name__ == "__main__":
     unittest.main()

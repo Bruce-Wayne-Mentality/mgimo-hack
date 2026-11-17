@@ -64,7 +64,7 @@ export function StudentIdPage() {
       {card.isPending && <Skeleton className="h-[520px] max-w-[420px]" />}
       {card.isError && <ErrorState message={card.error.message} onRetry={() => card.refetch()} />}
       {data && (
-        <div className="grid items-start gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
           <section aria-label="Цифровой студенческий билет" className="overflow-hidden rounded-[28px] bg-surface shadow-k-float">
             <div className="flex items-center gap-3 bg-primary px-5 py-4 text-on-primary">
               <BrandMark className="size-10 bg-white text-primary" />

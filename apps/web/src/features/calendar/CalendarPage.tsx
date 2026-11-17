@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, CalendarPlus, ClipboardList, Copy, GraduationCap, MapPin, Target, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarPlus, ClipboardList, Copy, DoorOpen, GraduationCap, MapPin, Target, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Alert, Button, Card, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui";
@@ -25,6 +25,7 @@ const KINDS: { key: Event["kind"]; label: string; icon: LucideIcon; tone: string
   { key: "deadline", label: "Дедлайны", icon: Target, tone: "bg-[#fff4dc] text-[#8a5a00]" },
   { key: "exam", label: "Сессия", icon: GraduationCap, tone: "bg-[#fdecec] text-[#b42318]" },
   { key: "request", label: "Заявки", icon: ClipboardList, tone: "bg-[#e3f7ea] text-[#146c3a]" },
+  { key: "booking", label: "Брони", icon: DoorOpen, tone: "bg-[#efe9ff] text-[#5b3cc4]" },
 ];
 
 function Countdown({ events }: { events: Event[] }) {
@@ -132,7 +133,7 @@ export function CalendarPage() {
           );
         })}
       </div>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           {feed.isPending && <Skeleton className="h-64" />}
           {feed.isError && <ErrorState message={feed.error.message} onRetry={() => feed.refetch()} />}

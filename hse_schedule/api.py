@@ -122,6 +122,26 @@ def create_app(
     # An existing site's trusted identity resolver can override this dependency.
     app.state.account_dependency = authenticated_email
 
+    from .ratelimit import RateLimiter
+
+    # A coarse per-address ceiling for the whole API on top of the per-feature
+    # limits (login throttle, public checks): a stuck script or a flood gets 429.
+    read_limit = RateLimiter(limit=600, window=60)
+    write_limit = RateLimiter(limit=120, window=60)
+
+    @app.middleware("http")
+    async def api_rate_limit(request: Request, call_next):
+        if request.url.path.startswith("/api/"):
+            client = request.client.host if request.client else "unknown"
+            limiter = read_limit if request.method in ("GET", "HEAD", "OPTIONS") else write_limit
+            wait = limiter.hit(f"api|{client}")
+            if wait is not None:
+                return JSONResponse(
+                    {"error": {"code": "rate_limited", "message": "Слишком много запросов. Подождите немного."}},
+                    status_code=429, headers={"Retry-After": str(int(wait) + 1)},
+                )
+        return await call_next(request)
+
     @app.middleware("http")
     async def private_responses(request: Request, call_next):
         response = await call_next(request)
@@ -158,8 +178,19 @@ def create_app(
         )
 
     @app.get("/health")
-    def health() -> dict:
-        return {"status": "ok", "demo": demo}
+    async def health() -> JSONResponse:
+        database = getattr(app.state, "database", None)
+        status = {"status": "ok", "demo": demo}
+        if database is not None:
+            from sqlalchemy import text
+
+            try:
+                async with database.session() as db:
+                    await db.execute(text("SELECT 1"))
+                status["database"] = "ok"
+            except Exception:
+                return JSONResponse({"status": "degraded", "database": "unavailable", "demo": demo}, status_code=503)
+        return JSONResponse(status)
 
     @app.get("/api/me")
     def current_student(email: str = Depends(authenticated_email)) -> dict:

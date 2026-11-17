@@ -26,6 +26,7 @@ ACTION_LABELS = {
 
 def register_admin_routes(app: FastAPI, database: Database, store, *, demo: bool, reseed) -> None:
     require_session = app.state.require_session
+    app.state.database = database  # lets /health check the database
 
     @app.get("/api/staff/dashboard", tags=["staff"])
     async def dashboard(current: CurrentSession = Depends(require_session)) -> dict:

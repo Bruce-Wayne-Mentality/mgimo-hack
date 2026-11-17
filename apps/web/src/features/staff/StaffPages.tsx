@@ -42,7 +42,7 @@ export function StaffHome() {
             <Stat icon={Timer} label="ждут ответа студента" value={data.requests.needs_info} to="/staff/requests" tone={data.requests.needs_info ? "warn" : undefined} />
             <Stat icon={Zap} label="закрыто за неделю" value={`${data.requests.closed_week}`} to="/staff/requests" />
           </div>
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
             <Card aria-labelledby="risk-heading">
               <CardTitle id="risk-heading" meta={<MoreLink to="/staff/grades">Журнал</MoreLink>}>Светофор факультета</CardTitle>
               {total > 0 && (
@@ -136,7 +136,7 @@ export function StaffAnnouncementsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader eyebrow="Попадает в центр уведомлений адресатов" title="Объявления" />
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
           <CardTitle>Новое объявление</CardTitle>
           <form onSubmit={submit} className="flex flex-col gap-3">

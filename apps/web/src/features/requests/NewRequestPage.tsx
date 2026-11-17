@@ -238,7 +238,7 @@ export function NewRequestPage() {
       )}
 
       {selected && draft.step === 2 && (
-        <form noValidate onSubmit={toReview} className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <form noValidate onSubmit={toReview} className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           <Card>
             <CardTitle>{selected.title}</CardTitle>
             <div className="flex flex-col gap-4">

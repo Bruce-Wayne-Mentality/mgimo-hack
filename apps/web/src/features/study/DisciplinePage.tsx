@@ -9,6 +9,16 @@ import { dateTimeLabel } from "../requests/api";
 import { shortDate, useDiscipline, type Checkpoint, type DisciplineDetail, type WhatIf } from "./api";
 import { BarLegend, LEVEL_STYLE, LevelBadge, ScoreBar } from "./parts";
 
+function points(value: number): string {
+  const whole = Math.floor(value);
+  if (whole !== value) return "балла";
+  const mod10 = whole % 10;
+  const mod100 = whole % 100;
+  if (mod10 === 1 && mod100 !== 11) return "балл";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "балла";
+  return "баллов";
+}
+
 const STATE: Record<Checkpoint["state"], { label: string; className: string }> = {
   graded: { label: "оценено", className: "text-[#146c3a]" },
   missed: { label: "не сдано", className: "text-danger" },
@@ -146,7 +156,7 @@ export function DisciplinePage() {
         </div>
       </PageHeader>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           <Card className={LEVEL_STYLE[data.risk.level].tile}>
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -170,7 +180,7 @@ export function DisciplinePage() {
               )}
               <p className="m-0 text-text-2">
                 {missing > 0
-                  ? `До допуска осталось ${missing} балл(ов)` + (data.need_for_admission !== null ? ` — это ${Math.round(data.need_for_admission * 100)}% от оставшихся работ.` : ".")
+                  ? `До допуска осталось ${missing} ${points(missing)}` + (data.need_for_admission !== null ? ` — это ${Math.round(data.need_for_admission * 100)}% от оставшихся работ.` : ".")
                   : "Порог допуска по баллам уже пройден."}
                 {data.need_for_excellent !== null && data.need_for_excellent > 0 && ` На «отлично» нужно ${Math.round(data.need_for_excellent * 100)}% оставшегося.`}
               </p>

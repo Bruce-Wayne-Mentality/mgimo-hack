@@ -128,7 +128,7 @@ export function StaffRequestPage() {
         </section>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <div className="flex flex-col gap-4">
           {!!data.actions?.length && (
             <Card aria-labelledby="actions-heading">

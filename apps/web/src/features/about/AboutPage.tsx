@@ -20,12 +20,13 @@ const FEATURES = [
 ];
 
 const LICENSES = [
-  ["React, React Router, TanStack Query, Vite, Tailwind CSS", "MIT"],
+  ["React, React Router, TanStack Query, Tailwind CSS, zod", "MIT"],
   ["lucide-react (иконки)", "ISC"],
-  ["Шрифт Onest", "SIL OFL 1.1"],
-  ["FastAPI, SQLAlchemy, Alembic, Pydantic, Uvicorn", "MIT"],
-  ["argon2-cffi, segno, httpx", "MIT / BSD-3-Clause"],
-  ["ReportLab (PDF)", "BSD"],
+  ["Шрифт Onest (интерфейс и PDF)", "SIL OFL 1.1"],
+  ["FastAPI, Pydantic, SQLAlchemy, Alembic, argon2-cffi", "MIT"],
+  ["Uvicorn, httpx, segno (QR), ReportLab (PDF)", "BSD"],
+  ["asyncpg", "Apache-2.0"],
+  ["pywebpush (без изменений)", "MPL-2.0"],
   ["PostgreSQL", "PostgreSQL License"],
 ];
 

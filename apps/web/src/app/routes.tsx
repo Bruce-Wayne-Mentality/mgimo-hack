@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router";
 import { AboutPage } from "@/features/about/AboutPage";
 import { AssistantPage } from "@/features/assistant/AssistantPage";
+import { BookingPage } from "@/features/booking/BookingPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
@@ -49,6 +50,7 @@ export const routes: RouteObject[] = [
           { index: true, element: <HomePage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "more", element: <MorePage /> },
+          { path: "booking", element: <BookingPage /> },
           {
             element: <RequireAuth roles={["student"]} />,
             children: [

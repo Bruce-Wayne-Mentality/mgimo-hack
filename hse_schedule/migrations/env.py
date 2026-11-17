@@ -8,7 +8,7 @@ from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from hse_schedule import academics, accounts, announcements, calendar_feed, complaints, documents, student_requests  # noqa: F401  (registers models)
+from hse_schedule import academics, accounts, announcements, booking, calendar_feed, complaints, documents, student_requests  # noqa: F401  (registers models)
 from hse_schedule.db import Base, async_database_url, database_url_from_env
 
 config = context.config

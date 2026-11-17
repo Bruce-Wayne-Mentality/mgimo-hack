@@ -310,7 +310,7 @@ export function AdminComplaintPage() {
       {item.isPending && <Skeleton className="h-64" />}
       {item.isError && <ErrorState message={item.error.message} />}
       {data && (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="flex flex-col gap-4">
             <Card>
               <p className="caption m-0">{data.category_label} · {data.mode_label}{data.happened_on ? ` · было ${dateLabel(data.happened_on)}` : ""}</p>

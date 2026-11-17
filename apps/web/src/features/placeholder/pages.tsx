@@ -4,6 +4,7 @@ import {
   BookOpenCheck,
   Bot,
   CalendarRange,
+  DoorOpen,
   ChevronRight,
   ClipboardList,
   IdCard,
@@ -64,6 +65,7 @@ export function MorePage() {
     { to: "/assistant", label: "Ассистент", hint: "Вопросы о правилах, оценках и заявках", icon: Bot },
     { to: "/student-id", label: "Студенческий билет", hint: "QR-код для входа в корпус", icon: IdCard },
     { to: "/calendar", label: "Календарь", hint: "Пары, дедлайны, сессия и подписка .ics", icon: CalendarRange },
+    { to: "/booking", label: "Бронирование", hint: "Коворкинги, аудитории, приём в деканате", icon: DoorOpen },
     { to: "/situations", label: "Жизненные ситуации", hint: "Академ, перевод, несданный экзамен", icon: LifeBuoy },
     { to: "/complaints", label: "Красная кнопка", hint: "Жалоба на несправедливость", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
   ];
@@ -72,6 +74,7 @@ export function MorePage() {
     { to: "/staff/grades", label: "Журнал оценок", hint: "Баллы и светофор групп", icon: BookOpenCheck },
     { to: "/staff/announcements", label: "Объявления", hint: "Группе, курсу или факультету", icon: Megaphone },
     { to: "/staff/check", label: "Проверить QR", hint: "Студенческий билет или справка", icon: ScanLine },
+    { to: "/booking", label: "Брони и загрузка", hint: "Тепловая карта и отмена броней", icon: DoorOpen },
   ];
   const admin: Entry[] = [
     { to: "/admin/complaints", label: "Красная кнопка", hint: "Обращения студентов", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },

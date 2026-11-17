@@ -53,6 +53,7 @@ async def _seed_database(database) -> dict:
     from .academics.seed import seed_academics
     from .accounts.seed import seed_demo
     from .announcements import seed_announcements
+    from .booking import seed_booking
     from .complaints import seed_complaints
     from .student_requests.seed import seed_demo_requests, seed_request_types
 
@@ -62,6 +63,7 @@ async def _seed_database(database) -> dict:
     created["requests"] = await seed_demo_requests(database)
     created["announcements"] = await seed_announcements(database)
     created["complaints"] = await seed_complaints(database)
+    created["resources"] = await seed_booking(database)
     return created
 
 
@@ -83,6 +85,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     from .academics.service import AcademicService
     from .announcements import AnnouncementService, register_announcement_routes
     from .assistant.router import register_assistant_routes
+    from .booking import BookingService, register_booking_routes
     from .calendar_feed import CalendarService, register_calendar_routes
     from .complaints import ComplaintService, register_complaint_routes
     from .admin import register_admin_routes
@@ -98,7 +101,8 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     documents = DocumentService(database, secret, base_url=base_url)
     student_id = StudentIdService(database, secret, base_url=base_url)
     announcements = AnnouncementService(database, notify=notify)
-    calendar = CalendarService(database, schedule)
+    booking = BookingService(database, schedule, notify=notify)
+    calendar = CalendarService(database, schedule, extra_sources=(booking.calendar_events,))
     complaints = ComplaintService(database, notify=notify)
     return (
         lambda app: register_academic_routes(app, academics),
@@ -107,6 +111,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
         lambda app: register_announcement_routes(app, announcements),
         lambda app: register_calendar_routes(app, calendar),
         lambda app: register_complaint_routes(app, complaints),
+        lambda app: register_booking_routes(app, booking),
         lambda app: register_assistant_routes(app, academics, request_service, schedule),
         lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database),
     )
@@ -276,6 +281,9 @@ def main(argv: list[str] | None = None) -> int:
                     cookie_secure=not args.insecure_cookies,
                     demo=args.demo,
                 )
+            if args.insecure_cookies and args.host not in ("127.0.0.1", "localhost", "::1"):
+                # Without Secure the session cookie would travel over plain HTTP: only for local development.
+                raise ConfigurationError("--insecure-cookies разрешён только при --host 127.0.0.1 или localhost.")
             web_dist = args.web_dist or (WEB_DIST if (WEB_DIST / "index.html").is_file() else None)
             if web_dist is not None and auth is None:
                 raise ConfigurationError("Личный кабинет требует входа по логину: задайте DATABASE_URL.")

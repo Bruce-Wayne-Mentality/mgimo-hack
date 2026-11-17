@@ -66,7 +66,7 @@ describe("access gate", () => {
   it("opens the app for a signed-in student", async () => {
     handlers["GET /api/auth/me"] = () => ({ status: 200, body: { user: ANNA, csrf_token: "csrf-1" } });
     renderAt("/");
-    expect(await screen.findByRole("heading", { name: /Анна$/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Анна, привет!/ })).toBeInTheDocument();
     expect(screen.getAllByRole("navigation", { name: "Основное меню" }).length).toBeGreaterThan(0);
   });
 
@@ -129,7 +129,7 @@ describe("login screen", () => {
 
   it("always shows the concept notice", async () => {
     renderAt("/login");
-    expect(await screen.findByText("Концепт для конкурса, не официальный сервис вуза")).toBeInTheDocument();
+    expect(await screen.findByText(/Концепт для конкурса — не официальный сервис вуза/)).toBeInTheDocument();
   });
 });
 

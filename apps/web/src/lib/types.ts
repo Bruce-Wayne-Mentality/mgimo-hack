@@ -46,12 +46,15 @@ export type Lesson = {
   teachers: string[];
   room: string | null;
   building: string | null;
+  change?: { kind: "moved" | "cancelled" | "room"; note: string | null; was_starts_at: string | null; was_ends_at: string | null; was_room: string | null; change_id: string | null } | null;
 };
 
 export type Schedule = { start: string; finish: string; timezone: string; lessons: Lesson[] };
 
 export type Notification = {
   id: number;
+  kind?: string;
+  payload?: { link?: string; important?: boolean } & Record<string, unknown>;
   title: string;
   body: string;
   created_at: string;

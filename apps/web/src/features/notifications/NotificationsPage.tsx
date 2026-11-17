@@ -1,7 +1,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellRing, Check, Send } from "lucide-react";
+import { Pin, BellRing, Check, Send } from "lucide-react";
 import { useState } from "react";
-import { Alert, Button, Card, EmptyState, ErrorState, Skeleton } from "@/components/ui";
+import { Link, useSearchParams } from "react-router";
+import { Alert, Button, Card, CardTitle, EmptyState, ErrorState, IconChip, PageHeader, Skeleton, Switch } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { connectPush } from "@/lib/push";
@@ -15,7 +16,47 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : "Не удалось выполнить действие.";
 }
 
+const FILTERS = [
+  { key: "all", label: "Всё" },
+  { key: "important", label: "Важное" },
+  { key: "study", label: "Учёба" },
+  { key: "deanery", label: "Деканат" },
+] as const;
+type Filter = (typeof FILTERS)[number]["key"];
+
+function matches(item: Notification, filter: Filter): boolean {
+  const kind = item.kind ?? "";
+  if (filter === "important") return kind === "risk" || kind === "nudge" || Boolean(item.payload?.important);
+  if (filter === "study") return ["grade", "risk", "reminder", "schedule", "lesson", "nudge"].some((k) => kind.startsWith(k));
+  if (filter === "deanery") return ["request", "announcement", "complaint"].includes(kind);
+  return true;
+}
+
+type Announcement = { id: string; title: string; body: string; author: string; audience_label: string; pinned: boolean; important: boolean; created_at: string };
+
+function AnnouncementsList() {
+  const list = useQuery({ queryKey: ["announcements"], queryFn: async () => (await api<{ items: Announcement[] }>("/api/announcements")).items });
+  return (
+    <Card aria-labelledby="ann-list-heading">
+      <CardTitle id="ann-list-heading">Объявления деканата</CardTitle>
+      <div className="flex flex-col gap-2.5">
+        {list.isPending && <Skeleton className="h-24" />}
+        {list.isError && <ErrorState message={list.error.message} onRetry={() => list.refetch()} />}
+        {list.data?.length === 0 && <EmptyState>Актуальных объявлений нет.</EmptyState>}
+        {list.data?.map((item) => (
+          <article key={item.id} className={cn("rounded-[var(--radius-tile)] p-4", item.important ? "bg-[#fff4dc]" : "bg-surface-2")}>
+            <h3 className="m-0 text-[15px] font-medium tracking-normal">{item.pinned && <Pin aria-label="Закреплено" className="mr-1 inline size-4 text-primary" />}{item.title}</h3>
+            <p className="m-0 mt-1 text-sm whitespace-pre-line text-text-2">{item.body}</p>
+            <p className="caption m-0 mt-1.5">{item.audience_label} · {item.author} · {stamp(item.created_at)}</p>
+          </article>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function Inbox() {
+  const [filter, setFilter] = useState<Filter>("all");
   const client = useQueryClient();
   const inbox = useInfiniteQuery({
     queryKey: ["notifications", "list"],
@@ -29,37 +70,54 @@ function Inbox() {
   const read = useMutation({ mutationFn: (id: number) => api(`/api/me/notifications/${id}/read`, { method: "POST" }), onSettled: refresh });
   const readAll = useMutation({ mutationFn: () => api("/api/me/notifications/read-all", { method: "POST" }), onSettled: refresh });
 
-  const items: Notification[] = inbox.data?.pages.flatMap((page) => page.items) ?? [];
+  const all: Notification[] = inbox.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = all.filter((item) => matches(item, filter));
   const unread = inbox.data?.pages[0]?.unread_count ?? 0;
 
   return (
     <Card aria-labelledby="inbox-heading">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id="inbox-heading" className="m-0 text-xl font-semibold">Все уведомления</h2>
-        <Button variant="ghost" disabled={!unread} loading={readAll.isPending} onClick={() => readAll.mutate()}>
-          Прочитать всё
-        </Button>
-      </div>
+      <CardTitle
+        id="inbox-heading"
+        meta={
+          <Button variant="ghost" className="min-h-9 px-2 text-sm" disabled={!unread} loading={readAll.isPending} onClick={() => readAll.mutate()}>
+            Прочитать всё
+          </Button>
+        }
+      >
+        Все уведомления {unread > 0 && <span className="ml-1 inline-grid h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 align-middle text-[12px] font-medium text-on-primary">{unread}</span>}
+      </CardTitle>
       {readAll.isError && <Alert className="mb-3">{message(readAll.error)}</Alert>}
-      <div aria-live="polite" className="flex flex-col gap-2">
+      <div role="tablist" aria-label="Фильтр уведомлений" className="mb-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
+        {FILTERS.map((option) => (
+          <button key={option.key} role="tab" aria-selected={filter === option.key} onClick={() => setFilter(option.key)}
+            className={cn("soft min-h-9 shrink-0 rounded-[10px] px-3.5 text-sm", filter === option.key ? "bg-primary text-on-primary" : "bg-surface-2 text-text-2 hover:bg-primary-soft")}>
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div aria-live="polite" className="flex flex-col gap-2.5">
         {inbox.isPending && <Skeleton className="h-24" />}
         {inbox.isError && <ErrorState message={inbox.error.message} onRetry={() => inbox.refetch()} />}
-        {inbox.isSuccess && items.length === 0 && <EmptyState>Здесь появятся напоминания о парах и изменения расписания.</EmptyState>}
+        {inbox.isSuccess && items.length === 0 && <EmptyState>Новых уведомлений нет. Мы напишем, когда что-то изменится.</EmptyState>}
         {items.map((item) => (
           <article
             key={item.id}
-            className={cn("flex gap-3 rounded-[var(--radius-control)] border border-border p-3", !item.read_at && "border-primary bg-primary-soft")}
+            className={cn("flex items-start gap-3 rounded-[var(--radius-tile)] p-4", item.read_at ? "bg-surface-2" : "bg-primary-soft")}
           >
+            <span aria-hidden className={cn("mt-2 size-2 shrink-0 rounded-full", item.read_at ? "bg-line-strong" : "bg-primary")} />
             <div className="min-w-0 flex-1">
-              <h3 className="m-0 text-[15px] font-semibold">
+              <h3 className="m-0 text-[15px] font-medium tracking-normal">
                 {!item.read_at && <span className="sr-only">Новое: </span>}
                 {item.title}
               </h3>
-              <p className="m-0 text-sm">{item.body}</p>
-              <time dateTime={item.created_at} className="text-xs text-muted">{stamp(item.created_at)}</time>
+              <p className="m-0 mt-0.5 text-sm text-text-2">{item.body}</p>
+              <time dateTime={item.created_at} className="caption mt-1 block">{stamp(item.created_at)}</time>
+              {typeof item.payload?.link === "string" && item.payload.link.startsWith("/") && (
+                <Link to={item.payload.link} onClick={() => !item.read_at && read.mutate(item.id)} className="mt-1.5 inline-block text-sm font-medium text-primary hover:underline">Открыть</Link>
+              )}
             </div>
             {!item.read_at && (
-              <Button variant="ghost" className="shrink-0 px-2" onClick={() => read.mutate(item.id)} aria-label={`Отметить прочитанным: ${item.title}`}>
+              <Button variant="onBlue" className="min-h-9 shrink-0 px-2.5" onClick={() => read.mutate(item.id)} aria-label={`Отметить прочитанным: ${item.title}`}>
                 <Check className="size-5" aria-hidden />
               </Button>
             )}
@@ -112,54 +170,63 @@ function Delivery() {
   const enabled = settings.data?.enabled ?? false;
 
   return (
-    <Card aria-labelledby="delivery-heading" className="flex flex-col gap-4">
-      <h2 id="delivery-heading" className="m-0 text-xl font-semibold">Настройки</h2>
-      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4">
+    <Card aria-labelledby="delivery-heading" className="flex flex-col gap-3 [&>div:first-child]:mb-1">
+      <CardTitle id="delivery-heading">Каналы</CardTitle>
+      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-[var(--radius-tile)] bg-surface-2 p-4">
         <span>
           <span className="block font-medium">Уведомления</span>
-          <span className="block text-sm text-muted">
+          <span className="caption block">
             {enabled ? "Включены: приходят в подключённые каналы." : "Выключены: события остаются только здесь."}
           </span>
         </span>
-        <input
-          type="checkbox"
-          role="switch"
-          className="size-6 accent-[var(--primary)]"
+        <Switch
           checked={enabled}
           disabled={settings.isPending || toggle.isPending}
           onChange={(event) => toggle.mutate(event.target.checked)}
         />
       </label>
-      <div className="border-t border-border pt-4">
-        <h3 className="m-0 mb-1 text-base font-semibold">В браузере</h3>
-        <p className="mt-0 mb-3 text-sm text-muted">Напоминание за 10 минут до пары и изменения расписания.</p>
-        <Button variant="secondary" loading={browser.isPending} onClick={() => browser.mutate()}>
-          <BellRing className="size-5" aria-hidden />
+      <div className="rounded-[var(--radius-tile)] bg-surface-2 p-4">
+        <div className="mb-3 flex items-center gap-3">
+          <IconChip className="bg-surface">
+            <BellRing className="size-5" strokeWidth={1.75} aria-hidden />
+          </IconChip>
+          <div>
+            <h3 className="m-0 text-[15px] font-medium tracking-normal">В браузере</h3>
+            <p className="caption m-0">За 10 минут до пары и при изменениях</p>
+          </div>
+        </div>
+        <Button variant="secondary" className="w-full bg-surface" loading={browser.isPending} onClick={() => browser.mutate()}>
           Включить в браузере
         </Button>
         {browserNote && <p className="mt-2 mb-0 text-sm text-ok" role="status">{browserNote}</p>}
       </div>
-      <div className="border-t border-border pt-4">
-        <h3 className="m-0 mb-1 text-base font-semibold">В Telegram</h3>
-        <p className="mt-0 mb-3 text-sm text-muted">
-          {telegram.data?.linked
-            ? `Аккаунт привязан${telegram.data.username ? `: @${telegram.data.username.replace(/^@/, "")}` : "."}`
-            : "Аккаунт не привязан."}
-        </p>
+      <div className="rounded-[var(--radius-tile)] bg-surface-2 p-4">
+        <div className="mb-3 flex items-center gap-3">
+          <IconChip className="bg-surface">
+            <Send className="size-5" strokeWidth={1.75} aria-hidden />
+          </IconChip>
+          <div>
+            <h3 className="m-0 text-[15px] font-medium tracking-normal">В Telegram</h3>
+            <p className="caption m-0">
+              {telegram.data?.linked
+                ? `Аккаунт привязан${telegram.data.username ? `: @${telegram.data.username.replace(/^@/, "")}` : "."}`
+                : "Аккаунт не привязан."}
+            </p>
+          </div>
+        </div>
         {telegram.data?.linked ? (
-          <Button variant="danger" loading={unlink.isPending} onClick={() => unlink.mutate()}>Отвязать</Button>
+          <Button variant="danger" className="w-full" loading={unlink.isPending} onClick={() => unlink.mutate()}>Отвязать</Button>
         ) : (
-          <Button variant="secondary" loading={link.isPending} onClick={() => link.mutate()}>
-            <Send className="size-5" aria-hidden />
+          <Button variant="secondary" className="w-full bg-surface" loading={link.isPending} onClick={() => link.mutate()}>
             Привязать Telegram
           </Button>
         )}
         {deepLink && !telegram.data?.linked && (
           <div className="mt-3 flex flex-col gap-2">
-            <a href={deepLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] bg-primary px-4 font-semibold text-on-primary">
+            <a href={deepLink} target="_blank" rel="noopener noreferrer" className="soft inline-flex min-h-12 items-center justify-center rounded-[var(--radius-control)] bg-primary px-4 font-medium text-on-primary hover:bg-primary-hover">
               Открыть Telegram ↗
             </a>
-            <p className="m-0 text-sm text-muted">Нажмите «Запустить» в боте. Ссылка действует 10 минут.</p>
+            <p className="caption m-0">Нажмите «Запустить» в боте. Ссылка действует 10 минут.</p>
           </div>
         )}
       </div>
@@ -169,11 +236,21 @@ function Delivery() {
 }
 
 export function NotificationsPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "announcements" ? "announcements" : "inbox";
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="m-0 text-[28px] font-semibold">Уведомления</h1>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <Inbox />
+      <PageHeader eyebrow="Оценки, заявки, расписание и объявления деканата" title="Уведомления" />
+      <div role="tablist" aria-label="Разделы" className="flex gap-1.5">
+        {[{ key: "inbox", label: "Лента" }, { key: "announcements", label: "Объявления" }].map((option) => (
+          <button key={option.key} role="tab" aria-selected={tab === option.key} onClick={() => setParams(option.key === "inbox" ? {} : { tab: option.key }, { replace: true })}
+            className={cn("soft min-h-10 rounded-[10px] px-4 text-sm", tab === option.key ? "bg-primary text-on-primary" : "bg-surface text-text-2 shadow-k-card hover:bg-primary-soft")}>
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        {tab === "inbox" ? <Inbox /> : <AnnouncementsList />}
         <Delivery />
       </div>
     </div>

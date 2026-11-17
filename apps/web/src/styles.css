@@ -1,63 +1,60 @@
-@import "@fontsource-variable/golos-text/index.css";
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
-/* Design tokens from section 6 of the design document. */
+/*
+ * App-level semantic colours, all mapped onto the Soft Blue tokens (--k-*).
+ * Components use these names (bg-surface, text-muted, bg-primary ...);
+ * the raw palette lives only in styles/tokens.css.
+ */
 :root {
-  --bg: #f6f7fb;
-  --surface: #ffffff;
-  --surface-2: #eef1f8;
-  --text: #12172b;
-  --text-muted: #586079;
-  --primary: #2b4bd8;
-  --primary-hover: #2340bd;
-  --primary-soft: #e8ecfc;
-  --on-primary: #ffffff;
-  --ok: #177a4b;
-  --warn: #9a5b00;
-  --danger: #c0262d;
+  --bg: var(--k-bg);
+  --bg-2: var(--k-bg-2);
+  --surface: var(--k-surface);
+  --surface-2: var(--k-surface-2);
+  --text: var(--k-text);
+  --text-2: var(--k-text-2);
+  --text-muted: var(--k-muted);
+  --line: var(--k-line);
+  --line-strong: var(--k-line-strong);
+  --primary: var(--k-primary);
+  --primary-hover: var(--k-primary-600);
+  --primary-strong: var(--k-primary-700);
+  --primary-soft: var(--k-primary-50);
+  --primary-tint: var(--k-primary-100);
+  --on-primary: var(--k-on-primary);
+  --ok: var(--k-success);
+  --warn: var(--k-warning);
+  --danger: var(--k-danger);
   --danger-soft: #fdecec;
-  --border: #dde1ee;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1220;
-    --surface: #171c2e;
-    --surface-2: #1f2540;
-    --text: #eef0f8;
-    --text-muted: #a4abc4;
-    --primary: #7c93ff;
-    --primary-hover: #95a7ff;
-    --primary-soft: #232c55;
-    --on-primary: #0e1220;
-    --ok: #4cc38a;
-    --warn: #f2b24c;
-    --danger: #ff7b80;
-    --danger-soft: #3a1d26;
-    --border: #2a3150;
-    color-scheme: dark;
-  }
-}
-
 @theme inline {
-  --font-sans: "Golos Text Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--k-font);
+  --font-display: var(--k-font);
   --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-text: var(--text);
+  --color-text-2: var(--text-2);
   --color-muted: var(--text-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-border: var(--line);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-strong: var(--primary-strong);
   --color-primary-soft: var(--primary-soft);
+  --color-primary-tint: var(--primary-tint);
   --color-on-primary: var(--on-primary);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --color-border: var(--border);
-  --radius-card: 16px;
-  --radius-control: 12px;
+  --radius-card: var(--k-r-lg);
+  --radius-tile: var(--k-r-md);
+  --radius-control: var(--k-r-sm);
 }
 
 @layer base {
@@ -68,14 +65,29 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--font-sans);
+    font-family: var(--k-font);
     font-size: 16px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
+  h1,
+  h2,
+  h3 {
+    font-weight: 500;
+    line-height: 1.12;
+  }
+  h1 {
+    letter-spacing: -0.025em;
+  }
+  h2 {
+    letter-spacing: -0.015em;
+  }
+  ::selection {
+    background: var(--primary-tint);
+  }
   :focus-visible {
-    outline: 3px solid var(--primary);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: var(--k-focus-ring);
   }
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -84,5 +96,32 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  /* Caption: grey 12-13px label above or under a value ("Состояние дома"). */
+  .caption {
+    font-size: 13px;
+    line-height: 1.35;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+  /* Short, soft colour/background changes only — no lifts, no scaling. */
+  .soft {
+    transition:
+      background-color var(--k-dur-fast) var(--k-ease),
+      color var(--k-dur-fast) var(--k-ease),
+      box-shadow var(--k-dur-fast) var(--k-ease);
+  }
+  .soft:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  /* Arrow inside an action nudges right on hover (icon buttons, "Все ›"). */
+  .nudge svg {
+    transition: transform var(--k-dur) var(--k-ease);
+  }
+  .nudge:hover svg {
+    transform: translateX(2px);
   }
 }

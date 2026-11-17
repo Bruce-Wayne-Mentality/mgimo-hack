@@ -1,0 +1,141 @@
+/*
+ * Design tokens — "Soft Blue" system, extracted from the smart-home reference
+ * (see obsidian: "Design System - Цифровой деканат").
+ * Raw tokens use the --k- prefix; Tailwind utilities are generated below as
+ * bg-k-*, text-k-*, rounded-k-*, shadow-k-*, font-k-*.
+ * Values are visual estimates from screenshots, not taken from source files.
+ */
+
+:root {
+  /* ---- Colour: neutrals --------------------------------------------- */
+  --k-bg: #eef2fb; /* page background, light periwinkle   rgb(238 242 251) */
+  --k-bg-2: #e5ebf9; /* tinted panels / feature tiles       rgb(229 235 249) */
+  --k-surface: #ffffff; /* cards, inputs, widgets */
+  --k-surface-2: #f4f7fe; /* inner tiles on white cards           rgb(244 247 254) */
+  --k-glass: rgb(255 255 255 / 0.72); /* floating widgets over photos (+ blur) */
+  --k-line: #e3e8f4; /* hairlines on white                    rgb(227 232 244) */
+  --k-line-strong: #cbd6ef; /* dividers on tinted bg, idle chip outline */
+
+  /* ---- Colour: text ------------------------------------------------- */
+  --k-text: #121826; /* headings, primary text               rgb(18 24 38) */
+  --k-text-2: #394155; /* body copy                            rgb(57 65 85) */
+  --k-muted: #8a93a8; /* captions, labels, placeholders       rgb(138 147 168) */
+
+  /* ---- Colour: brand ------------------------------------------------ */
+  --k-primary: #2f6ae6; /* brand blue: buttons, active, blocks   rgb(47 106 230) */
+  --k-primary-600: #2459cc; /* hover / pressed */
+  --k-primary-700: #1d4cb3; /* text on light blue, deep accents */
+  --k-primary-300: #8fb0f3; /* arcs, inactive track ends */
+  --k-primary-100: #d7e3fb; /* tinted illustration fill, pills */
+  --k-primary-50: #eaf0fd; /* icon chips, secondary button bg */
+  --k-on-primary: #ffffff;
+  --k-navy: #162a69; /* deep section background               rgb(22 42 105) */
+  --k-gradient-primary: linear-gradient(135deg, #3d78f0 0%, #2a62de 100%);
+
+  /* ---- Colour: on-blue overlays ------------------------------------- */
+  --k-on-blue-chip: rgb(255 255 255 / 0.16); /* "О проекте" pill */
+  --k-on-blue-line: rgb(255 255 255 / 0.35); /* dashed connectors */
+  --k-on-blue-watermark: rgb(255 255 255 / 0.1); /* giant background wordmark */
+
+  /* ---- Colour: status & data ---------------------------------------- */
+  --k-success: #22c55e; /* "Отлично" check */
+  --k-warning: #f5b82e; /* "2 требуют внимания" dot */
+  --k-danger: #ef4444; /* "Live" dot, errors */
+  --k-heat: linear-gradient(90deg, #a9c2f7 0%, #f3a487 55%, #ee7f5f 100%); /* temperature */
+  --k-humidity: linear-gradient(90deg, #2f6ae6 0%, #6f99f1 100%); /* humidity fill */
+
+  /* ---- Typography --------------------------------------------------- */
+  --k-font: "Onest", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* size / line-height / weight / tracking */
+  --k-display-xl: 400 72px/1.04 var(--k-font); /* hero headline */
+  --k-display-xl-ls: -0.035em;
+  --k-display-l: 400 48px/1.08 var(--k-font); /* section headline */
+  --k-display-l-ls: -0.03em;
+  --k-h1: 500 40px/1.1 var(--k-font);
+  --k-h1-ls: -0.025em;
+  --k-h2: 500 32px/1.15 var(--k-font);
+  --k-h2-ls: -0.02em;
+  --k-h3: 500 24px/1.2 var(--k-font);
+  --k-h3-ls: -0.015em;
+  --k-title: 500 18px/1.3 var(--k-font); /* card titles */
+  --k-body: 400 16px/1.5 var(--k-font);
+  --k-small: 400 14px/1.45 var(--k-font);
+  --k-caption: 400 12px/1.35 var(--k-font); /* labels like "Состояние дома" */
+  --k-stat: 500 44px/1 var(--k-font); /* "30%", "24/7" */
+
+  /* ---- Radius ------------------------------------------------------- */
+  --k-r-xs: 8px; /* small icon buttons */
+  --k-r-sm: 12px; /* buttons, inputs, chips */
+  --k-r-md: 16px; /* inner tiles */
+  --k-r-lg: 24px; /* cards, widgets */
+  --k-r-xl: 32px; /* section containers, phone frames */
+  --k-r-pill: 999px;
+
+  /* ---- Elevation & blur -------------------------------------------- */
+  --k-shadow-card: 0 1px 2px rgb(18 24 38 / 0.04), 0 8px 24px rgb(47 106 230 / 0.06);
+  --k-shadow-float: 0 12px 32px rgb(18 24 38 / 0.12);
+  --k-shadow-press: inset 0 0 0 1px var(--k-primary);
+  --k-focus-ring: 0 0 0 3px rgb(47 106 230 / 0.28);
+  --k-blur: 16px;
+
+  /* ---- Spacing (4px grid) & layout --------------------------------- */
+  --k-space-1: 4px;
+  --k-space-2: 8px;
+  --k-space-3: 12px;
+  --k-space-4: 16px;
+  --k-space-5: 20px;
+  --k-space-6: 24px;
+  --k-space-8: 32px;
+  --k-space-10: 40px;
+  --k-space-12: 48px;
+  --k-space-16: 64px;
+  --k-space-20: 80px;
+  --k-space-30: 120px;
+  --k-container: 1200px;
+  --k-gutter: 24px; /* 16px under 768px */
+  --k-grid-gap: 16px;
+
+  /* ---- Motion ------------------------------------------------------- */
+  --k-ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint */
+  --k-dur-fast: 160ms; /* hover colour, toggles */
+  --k-dur: 240ms; /* buttons, chips */
+  --k-dur-reveal: 520ms; /* scroll reveal (fade + 16px rise) */
+}
+
+@theme inline {
+  --font-k: var(--k-font);
+
+  --color-k-bg: var(--k-bg);
+  --color-k-bg-2: var(--k-bg-2);
+  --color-k-surface: var(--k-surface);
+  --color-k-surface-2: var(--k-surface-2);
+  --color-k-glass: var(--k-glass);
+  --color-k-line: var(--k-line);
+  --color-k-line-strong: var(--k-line-strong);
+  --color-k-text: var(--k-text);
+  --color-k-text-2: var(--k-text-2);
+  --color-k-muted: var(--k-muted);
+  --color-k-primary: var(--k-primary);
+  --color-k-primary-600: var(--k-primary-600);
+  --color-k-primary-700: var(--k-primary-700);
+  --color-k-primary-300: var(--k-primary-300);
+  --color-k-primary-100: var(--k-primary-100);
+  --color-k-primary-50: var(--k-primary-50);
+  --color-k-on-primary: var(--k-on-primary);
+  --color-k-navy: var(--k-navy);
+  --color-k-success: var(--k-success);
+  --color-k-warning: var(--k-warning);
+  --color-k-danger: var(--k-danger);
+
+  --radius-k-xs: var(--k-r-xs);
+  --radius-k-sm: var(--k-r-sm);
+  --radius-k-md: var(--k-r-md);
+  --radius-k-lg: var(--k-r-lg);
+  --radius-k-xl: var(--k-r-xl);
+
+  --shadow-k-card: var(--k-shadow-card);
+  --shadow-k-float: var(--k-shadow-float);
+  --shadow-k-focus: var(--k-focus-ring);
+
+  --ease-k: var(--k-ease);
+}

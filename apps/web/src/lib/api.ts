@@ -35,6 +35,7 @@ type Options = {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
   /** Do not trigger the global "session ended" handler on 401. */
   quiet401?: boolean;
 };
@@ -55,7 +56,7 @@ function errorFrom(status: number, data: unknown, retryAfter: string | null): Ap
 
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
   const method = options.method ?? "GET";
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = { Accept: "application/json", ...options.headers };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (!SAFE.has(method) && csrfToken) headers["X-CSRF-Token"] = csrfToken;
 

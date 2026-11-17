@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, UserRound } from "lucide-react";
+import { AlertTriangle, MapPin, UserRound } from "lucide-react";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import type { Lesson, Schedule } from "@/lib/types";
 
 const TZ = "Europe/Moscow";
@@ -57,29 +58,52 @@ export function groupByDay(lessons: Lesson[]): [string, Lesson[]][] {
   return [...days.entries()];
 }
 
+function changeText(lesson: Lesson): string | null {
+  const change = lesson.change;
+  if (!change) return null;
+  const when = (value: string | null) =>
+    value ? new Intl.DateTimeFormat("ru", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(value)) : "";
+  if (change.kind === "cancelled") return "Пара отменена";
+  if (change.kind === "room") return `Замена аудитории: было ${change.was_room ?? "—"}`;
+  const wasRoom = change.was_room && change.was_room !== lesson.room ? `, ауд. ${change.was_room}` : "";
+  return `Перенесена: было ${when(change.was_starts_at)}${wasRoom}`;
+}
+
+/** Lesson tile: light inner tile on a white card, time in a blue chip. Deanery edits show «было → стало». */
 export function LessonCard({ lesson }: { lesson: Lesson }) {
   const place = [lesson.room ? `ауд. ${lesson.room}` : "", lesson.building ?? ""].filter(Boolean).join(" · ");
+  const cancelled = lesson.change?.kind === "cancelled";
+  const note = changeText(lesson);
   return (
-    <article className="flex gap-4 rounded-[var(--radius-control)] border border-border p-3">
-      <div className="w-14 shrink-0 text-right tabular-nums">
-        <div className="font-semibold">{timeLabel(lesson.starts_at)}</div>
-        <div className="text-sm text-muted">{timeLabel(lesson.ends_at)}</div>
+    <article className={cn("flex gap-4 rounded-[var(--radius-tile)] p-3.5 sm:p-4", note ? (cancelled ? "bg-[#fff5f5]" : "bg-[#fff8e8]") : "bg-surface-2")}>
+      <div className={cn("flex w-[68px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] py-2 tabular-nums", cancelled ? "bg-line-strong text-text-2 line-through" : "bg-primary text-on-primary")}>
+        <span className="text-[17px] leading-none font-medium">{timeLabel(lesson.starts_at)}</span>
+        <span className="text-[12px] leading-none opacity-80">{timeLabel(lesson.ends_at)}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-xs font-medium tracking-wide text-primary uppercase">{lesson.kind || "Занятие"}</p>
-        <h3 className="m-0 text-base font-semibold">{lesson.title}</h3>
-        {lesson.teachers.length > 0 && (
-          <p className="m-0 mt-1 flex items-center gap-1.5 text-sm text-muted">
-            <UserRound className="size-4 shrink-0" aria-hidden />
-            {lesson.teachers.join(", ")}
+        {note && (
+          <p className={cn("m-0 mb-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium", cancelled ? "bg-[#fdecec] text-[#b42318]" : "bg-[#fff0c7] text-[#7a4f00]")}>
+            <AlertTriangle className="size-3.5" aria-hidden />
+            {note}
           </p>
         )}
-        {place && (
-          <p className="m-0 flex items-center gap-1.5 text-sm text-muted">
-            <MapPin className="size-4 shrink-0" aria-hidden />
-            {place}
-          </p>
-        )}
+        <p className="caption m-0 mb-0.5 first-letter:uppercase">{lesson.kind || "Занятие"}</p>
+        <h3 className={cn("m-0 text-base leading-snug font-medium tracking-normal", cancelled && "text-text-2 line-through")}>{lesson.title}</h3>
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-text-2">
+          {lesson.teachers.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <UserRound className="size-4 shrink-0 text-muted" aria-hidden />
+              {lesson.teachers.join(", ")}
+            </span>
+          )}
+          {place && (
+            <span className="flex items-center gap-1.5">
+              <MapPin className="size-4 shrink-0 text-muted" aria-hidden />
+              {place}
+            </span>
+          )}
+        </div>
+        {lesson.change?.note && <p className="m-0 mt-1 text-[13px] text-text-2">{lesson.change.note}</p>}
       </div>
     </article>
   );

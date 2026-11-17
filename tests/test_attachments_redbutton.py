@@ -116,6 +116,31 @@ class RedButtonAttachmentTests(FeatureTestCase):
         if database.is_file():
             self.assertNotIn(marker.encode("utf-8"), database.read_bytes())  # the name is encrypted too
 
+    def test_names_and_contents_never_reach_the_logs(self):
+        import logging
+
+        marker = "ЛОГ-КАНАРЕЙКА"
+        records: list[str] = []
+
+        class Catch(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage() + " " + str(record.args))
+
+        handler = Catch(level=logging.DEBUG)
+        root = logging.getLogger()
+        old_level = root.level
+        root.addHandler(handler)
+        root.setLevel(logging.DEBUG)
+        try:
+            vera = self.client(VERA)
+            file = self.upload(vera, samples.docx(f"Текст {marker} внутри файла"), f"{marker}.docx")
+            self.submit(vera, [file["id"]])
+        finally:
+            root.removeHandler(handler)
+            root.setLevel(old_level)
+        self.assertTrue(records)  # something was logged, so the check is not vacuous
+        self.assertFalse([r for r in records if marker in r])
+
     def test_gigachat_down_marks_unverified_and_sends_to_a_person(self):
         self.giga.verdict = GigaChatUnavailable("503")
         anna = self.client(ANNA)

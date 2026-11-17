@@ -165,7 +165,7 @@ class Retriever:
         """mode: hybrid (default), bm25 or vector — the last two exist for the evaluation.
 
         expansion: terms of the regulations for the same question (from rewrite_query); BM25 runs
-        on the question and on the terms alone, and both rankings join the RRF fusion.
+        on the question and on «question + terms», and both rankings join the RRF fusion.
         """
         state = self._state
         if not state.fragments:
@@ -177,7 +177,7 @@ class Retriever:
         expanded_all: list[float] | None = None
         expanded_rank: list[int] = []
         if expansion and expansion.strip() and mode != "vector":
-            expanded_all = state.bm25.scores(expansion)  # the terms alone: a second, independent view of the question
+            expanded_all = state.bm25.scores(f"{query} {expansion}")
             expanded_rank = sorted((i for i in allowed if expanded_all[i] > 0), key=lambda i: -expanded_all[i])[:POOL]
 
         cosines: np.ndarray | None = None

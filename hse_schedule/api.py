@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from collections.abc import Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import date
@@ -15,6 +16,25 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .errors import ConfigurationError, InvalidPayload, SourceUnavailable, UnknownStudent
 from .service import ScheduleService
 from .validation import validate_date_range
+
+
+PRIVATE_LOG_PREFIXES = ("/api/complaints", "/api/staff/complaints", "/api/staff/moderation")
+
+
+class _NoAddressForComplaints(logging.Filter):
+    """Spec «Красная кнопка», §6: no IP address in logs for the complaints routes."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str) and args[2].startswith(PRIVATE_LOG_PREFIXES):
+            record.args = ("-", *args[1:2], args[2].split("?", 1)[0], *args[3:])
+        return True
+
+
+def install_access_log_filter() -> None:
+    logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _NoAddressForComplaints) for f in logger.filters):
+        logger.addFilter(_NoAddressForComplaints())
 
 
 def create_app(
@@ -54,6 +74,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app):
+        install_access_log_filter()
         runtime = None
         if notification_store is not None and run_workers:
             from .notification_runtime import NotificationDispatcher, NotificationRuntime

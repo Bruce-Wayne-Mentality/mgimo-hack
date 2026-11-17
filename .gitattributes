@@ -1,0 +1,2 @@
+# RAG test bench: exact bytes, so sha256 in manifest.json matches on every OS
+rag_test_data/** -text

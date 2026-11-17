@@ -22,7 +22,15 @@ dependencies = [
     "cryptography>=42",
     "onnxruntime>=1.18",
     "tokenizers>=0.19",
+    "numpy>=1.26",
     "tzdata>=2024.1; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+# Only for building the RAG knowledge base (kb-build); the app runs without them.
+kb = [
+    "pdfplumber>=0.11,<1",
+    "beautifulsoup4>=4.12,<5",
 ]
 
 [project.scripts]
@@ -32,4 +40,4 @@ hse-schedule = "hse_schedule.cli:main"
 include = ["hse_schedule*"]
 
 [tool.setuptools.package-data]
-hse_schedule = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py", "assets/fonts/*", "academics/*.json", "assistant/*.json"]
+hse_schedule = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py", "assets/fonts/*", "academics/*.json", "assistant/*.json", "assistant/kb/*.json"]

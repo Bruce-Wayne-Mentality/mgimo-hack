@@ -1,0 +1,12 @@
+{
+  "_note": "bm25_only: calibrated by kb-eval on rag_test_data (15 questions, docs/rag/EVAL.md). hybrid: still an assumption — embeddings are unavailable on the project key (HTTP 402), recalibrate with kb-eval --calibrate after kb-embed.",
+  "calibrated": true,
+  "bm25_only": {
+    "min_bm25": 6.5,
+    "min_term_coverage": 0.3
+  },
+  "hybrid": {
+    "min_cosine": 0.5,
+    "min_term_coverage": 0.3
+  }
+}

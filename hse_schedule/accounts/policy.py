@@ -21,3 +21,8 @@ def schedule_email(user: User) -> str | None:
     if user.role == "student" and user.student is not None and user.is_active:
         return user.student.email
     return None
+
+
+def can_manage_kb(user: User) -> bool:
+    """Assistant knowledge base: see the queue of unanswered questions and publish answers."""
+    return user.is_active and user.role in ("staff", "admin")

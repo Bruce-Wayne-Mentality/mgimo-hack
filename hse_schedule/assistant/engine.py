@@ -23,29 +23,16 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from .knowledge import DOCUMENTS
+from .textsearch import STOP, stem, tokens  # noqa: F401  (shared with the knowledge base)
 
 MOSCOW = ZoneInfo("Europe/Moscow")
 DISCLAIMER = "Это ИИ. Он может ошибаться; важное проверьте у деканата."
-
-_WORD = re.compile(r"[a-zа-яё0-9]+", re.IGNORECASE)
-STOP = set("и в во на по к ко с со о об от до за из у а но или ли же бы не ни что как где когда мне меня мой моя мои мою "
-           "я ты вы вас вам это этот эта то та там тут ещё еще уже для при про над под без очень можно нужно надо "
-           "хочу какой какая какие каких сколько есть будет был была".split())
 
 INJECTION = re.compile(
     r"(игнорир|забудь\s+(все|всё|инструкц)|ignore\s+(all|previous)|system\s*prompt|системн\w+\s+промпт|"
     r"ты\s+теперь|притворись|jailbreak|developer\s+mode|режим\s+разработчика)", re.IGNORECASE)
 OTHERS = re.compile(r"(оценк\w*|балл\w*|заявк\w*|данные|расписани\w*)\s+(другого|других|чуж\w+|однокурсник\w*|бориса|анны|веры|студента\s+\w+)",
                     re.IGNORECASE)
-
-
-def stem(word: str) -> str:
-    word = word.lower().replace("ё", "е")
-    return word[:6] if len(word) > 6 else word
-
-
-def tokens(text: str) -> list[str]:
-    return [stem(w) for w in _WORD.findall(text.lower()) if w.lower() not in STOP and len(w) > 1]
 
 
 class Index:
@@ -133,7 +120,9 @@ def _day(value: date, today: date) -> str:
     return f"{value.day} {months[value.month - 1]}"
 
 
-def answer(message: str, ctx: StudentContext, about: str | None = None, intent: str | None = None) -> Reply:
+def answer(message: str, ctx: StudentContext, about: str | None = None, intent: str | None = None, *, kb: bool = False) -> Reply:
+    """kb=True (RAG_ENABLED): questions about the rules return Reply(kind="kb_search") — the router
+    answers them from the knowledge base. Guards, drafts and «about me» branches never change."""
     text = message.strip().lower().replace("ё", "е")
     if about:
         text = f"{text} {about.lower()}"
@@ -199,16 +188,16 @@ def answer(message: str, ctx: StudentContext, about: str | None = None, intent: 
                       + ". Допишите причину. Если не уверены в последствиях, откройте мастер «Не сдал экзамен».",
                       extra=[{"kind": "link", "label": "Мастер «Не сдал экзамен»", "link": "/situations/failed-exam"}])
     if _has(text, r"академ\b", r"академическ\w* отпуск", r"взять академ"):
-        return _rule("acad-leave", extra=[{"kind": "link", "label": "Открыть мастер «Хочу взять академ»", "link": "/situations/academic-leave"}])
+        return _rule_or_kb("acad-leave", kb, extra=[{"kind": "link", "label": "Открыть мастер «Хочу взять академ»", "link": "/situations/academic-leave"}])
     if _has(text, r"перевест", r"перевод"):
-        return _rule("transfer", extra=[{"kind": "link", "label": "Открыть мастер «Хочу перевестись»", "link": "/situations/transfer"}])
+        return _rule_or_kb("transfer", kb, extra=[{"kind": "link", "label": "Открыть мастер «Хочу перевестись»", "link": "/situations/transfer"}])
     if _has(text, r"материальн", r"матпомощ"):
         return _draft("AID", "Материальная помощь", {}, "Подготовил черновик заявления на материальную помощь — опишите основание.")
 
     if _has(text, r"оспор", r"апелляц", r"несправедлив", r"занизил", r"не согласен с оценк", r"несогласен"):
-        return _rule("appeal", extra=[{"kind": "link", "label": "Красная кнопка", "link": "/complaints/new"}])
+        return _rule_or_kb("appeal", kb, extra=[{"kind": "link", "label": "Красная кнопка", "link": "/complaints/new"}])
     if _has(text, r"стипенди"):
-        return _rule("scholarship")
+        return _rule_or_kb("scholarship", kb)
 
     # ---- «про меня» -----------------------------------------------------------
     if _has(text, r"заявк", r"где мо\w+ справк", r"статус"):
@@ -294,6 +283,9 @@ def answer(message: str, ctx: StudentContext, about: str | None = None, intent: 
         return Reply(f"Здравствуйте, {ctx.first_name}! Я помогу с правилами вуза, вашими оценками, заявками и расписанием, "
                      "а ещё могу подготовить заявку — вы только подтвердите.", kind="hello")
 
+    if kb:
+        return Reply("", kind="kb_search")
+
     found = INDEX.search(text)
     if found and found[0][0] >= 1.2:
         return _rule(found[0][1]["id"], related=[doc for _, doc in found[1:2]])
@@ -301,6 +293,12 @@ def answer(message: str, ctx: StudentContext, about: str | None = None, intent: 
     return Reply("Не уверен, что правильно понял вопрос, а гадать не буду. Могу передать его сотруднику деканата "
                  "вместе с кратким содержанием нашего диалога — вы увидите ответ в «Заявках».",
                  kind="fallback", actions=[{"kind": "handoff", "label": "Позвать сотрудника", "summary": message.strip()[:500]}])
+
+
+def _rule_or_kb(doc_id: str, kb: bool, extra: list[dict] | None = None) -> Reply:
+    if kb:  # the knowledge base answers; the buttons of this branch (wizards, red button) stay
+        return Reply("", kind="kb_search", actions=list(extra or []))
+    return _rule(doc_id, extra=extra)
 
 
 def _rule(doc_id: str, extra: list[dict] | None = None, related: list[dict] | None = None) -> Reply:

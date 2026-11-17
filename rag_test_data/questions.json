@@ -1,0 +1,179 @@
+{
+  "questions": [
+    {
+      "id": "q01",
+      "question": "Сколько раз можно пересдавать экзамен?",
+      "type": "direct",
+      "answerable": true,
+      "gold_doc_id": "01",
+      "gold_section": "4.2",
+      "must_contain": [
+        "не более двух раз",
+        "комиссией"
+      ],
+      "source_note": "Положение об учебном процессе, п. 4.2"
+    },
+    {
+      "id": "q02",
+      "question": "В течение скольких дней иностранный студент должен встать на миграционный учёт после приезда?",
+      "type": "direct",
+      "answerable": true,
+      "gold_doc_id": "02",
+      "gold_section": "2.1",
+      "must_contain": [
+        "3 рабочих дней"
+      ],
+      "source_note": "Правила для иностранных обучающихся, п. 2.1"
+    },
+    {
+      "id": "q03",
+      "question": "Какие электроприборы запрещены в комнате общежития?",
+      "type": "direct",
+      "answerable": true,
+      "gold_doc_id": "05",
+      "gold_section": "2.1",
+      "must_contain": [
+        "1,5 кВт"
+      ],
+      "source_note": "Правила проживания, п. 2.1"
+    },
+    {
+      "id": "q04",
+      "question": "На какой максимальный срок дают академический отпуск?",
+      "type": "direct",
+      "answerable": true,
+      "gold_doc_id": "06",
+      "gold_section": "4.1",
+      "must_contain": [
+        "не более 2 лет"
+      ],
+      "source_note": "Порядок перевода, п. 4.1"
+    },
+    {
+      "id": "q05",
+      "question": "Можно ли использовать нейросети при написании курсовой работы?",
+      "type": "direct",
+      "answerable": true,
+      "gold_doc_id": "07",
+      "gold_section": "5.2",
+      "must_contain": [
+        "Декларация об использовании ИИ"
+      ],
+      "source_note": "Инструкция по ИБ и ИТ, п. 5.2 (на неё ссылается Регламент ВКР, п. 3.3)"
+    },
+    {
+      "id": "q06",
+      "question": "Какой размер академической стипендии у отличника?",
+      "type": "table",
+      "answerable": true,
+      "gold_doc_id": "04",
+      "gold_section": "table-1",
+      "must_contain": [
+        "5400 руб."
+      ],
+      "source_note": "Положение о стипендиях, ред. 2, Таблица 1. Ловушка: в ред. 1 (утратила силу) — 4650 руб."
+    },
+    {
+      "id": "q07",
+      "question": "Какая нужна оригинальность текста магистерской диссертации в Антиплагиате?",
+      "type": "table",
+      "answerable": true,
+      "gold_doc_id": "03",
+      "gold_section": "table-1",
+      "must_contain": [
+        "не менее 80%"
+      ],
+      "source_note": "Регламент ВКР, Таблица 1"
+    },
+    {
+      "id": "q08",
+      "question": "Сколько делают дубликат студенческого билета?",
+      "type": "table",
+      "answerable": true,
+      "gold_doc_id": "10",
+      "gold_section": "table-1",
+      "must_contain": [
+        "5 рабочих дней"
+      ],
+      "source_note": "Порядок оформления справок, Таблица 1 (строка на второй странице таблицы, которая переходит со страницы на страницу)"
+    },
+    {
+      "id": "q09",
+      "question": "За сколько дней надо подать апелляцию, если оценку снизили за списывание?",
+      "type": "cross_doc",
+      "answerable": true,
+      "gold_doc_id": "01",
+      "gold_section": "5.1",
+      "must_contain": [
+        "3 рабочих дней"
+      ],
+      "source_note": "Конфликт: Этический кодекс п. 4.2 говорит 5 рабочих дней, но сам отсылает к п. 5.1 док. 01, который имеет приоритет"
+    },
+    {
+      "id": "q10",
+      "question": "С какого момента мне начнут платить стипендию после перевода с платного на бюджет?",
+      "type": "cross_doc",
+      "answerable": true,
+      "gold_doc_id": "04",
+      "gold_section": "3.4",
+      "must_contain": [
+        "с 1 числа месяца, следующего за приказом о переводе"
+      ],
+      "source_note": "Порядок перевода п. 2.4 ссылается на п. 3.4 Положения о стипендиях"
+    },
+    {
+      "id": "q11",
+      "question": "Какие медицинские справки нужны для заселения в общежитие?",
+      "type": "html",
+      "answerable": true,
+      "gold_doc_id": "web-dorm",
+      "gold_section": "faq-1",
+      "must_contain": [
+        "086/у"
+      ],
+      "source_note": "Страница «Заселение первокурсников», FAQ"
+    },
+    {
+      "id": "q12",
+      "question": "Когда работает военно-учётный стол и где он находится?",
+      "type": "html",
+      "answerable": true,
+      "gold_doc_id": "web-military",
+      "gold_section": "table-1",
+      "must_contain": [
+        "каб. 114"
+      ],
+      "source_note": "Страница «Военно-учётный стол», таблица приёма"
+    },
+    {
+      "id": "q13",
+      "question": "Сколько стоит парковка для студентов у корпуса?",
+      "type": "unanswerable",
+      "answerable": false,
+      "gold_doc_id": null,
+      "gold_section": null,
+      "must_contain": [],
+      "source_note": "В базе нет сведений о парковке"
+    },
+    {
+      "id": "q14",
+      "question": "Когда начинается приём документов в аспирантуру?",
+      "type": "unanswerable",
+      "answerable": false,
+      "gold_doc_id": null,
+      "gold_section": null,
+      "must_contain": [],
+      "source_note": "Аспирантура в базе не описана"
+    },
+    {
+      "id": "q15",
+      "question": "Сколько стоит комплексный обед в столовой?",
+      "type": "unanswerable",
+      "answerable": false,
+      "gold_doc_id": null,
+      "gold_section": null,
+      "must_contain": [],
+      "source_note": "Цены столовых в базе отсутствуют"
+    }
+  ]
+}

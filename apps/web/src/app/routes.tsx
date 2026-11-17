@@ -10,6 +10,9 @@ import { Lazy } from "./Lazy";
 // Screens load on demand: the first visit downloads only login, shell and home.
 const AboutPage = lazy(() => import("@/features/about/AboutPage").then((module) => ({ default: module.AboutPage })));
 const AssistantPage = lazy(() => import("@/features/assistant/AssistantPage").then((module) => ({ default: module.AssistantPage })));
+const CampusPage = lazy(() => import("@/features/campus/CampusPages").then((module) => ({ default: module.CampusPage })));
+const TeachersPage = lazy(() => import("@/features/campus/CampusPages").then((module) => ({ default: module.TeachersPage })));
+const CanteenPage = lazy(() => import("@/features/campus/CampusPages").then((module) => ({ default: module.CanteenPage })));
 const BookingPage = lazy(() => import("@/features/booking/BookingPage").then((module) => ({ default: module.BookingPage })));
 const CalendarPage = lazy(() => import("@/features/calendar/CalendarPage").then((module) => ({ default: module.CalendarPage })));
 const ComplaintPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.ComplaintPage })));
@@ -58,6 +61,9 @@ export const routes: RouteObject[] = [
           { path: "profile", element: <Lazy><ProfilePage /></Lazy> },
           { path: "more", element: <MorePage /> },
           { path: "booking", element: <Lazy><BookingPage /></Lazy> },
+          { path: "campus", element: <Lazy><CampusPage /></Lazy> },
+          { path: "teachers", element: <Lazy><TeachersPage /></Lazy> },
+          { path: "canteen", element: <Lazy><CanteenPage /></Lazy> },
           {
             element: <RequireAuth roles={["student"]} />,
             children: [

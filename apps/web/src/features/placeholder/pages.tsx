@@ -5,6 +5,9 @@ import {
   Bot,
   CalendarRange,
   DoorOpen,
+  MapPinned,
+  UserSearch,
+  UtensilsCrossed,
   ChevronRight,
   ClipboardList,
   IdCard,
@@ -66,6 +69,9 @@ export function MorePage() {
     { to: "/student-id", label: "Студенческий билет", hint: "QR-код для входа в корпус", icon: IdCard },
     { to: "/calendar", label: "Календарь", hint: "Пары, дедлайны, сессия и подписка .ics", icon: CalendarRange },
     { to: "/booking", label: "Бронирование", hint: "Коворкинги, аудитории, приём в деканате", icon: DoorOpen },
+    { to: "/campus", label: "Кампус", hint: "Свободно сейчас, корпуса, как найти аудиторию", icon: MapPinned },
+    { to: "/teachers", label: "Преподаватели", hint: "Часы консультаций и контакты", icon: UserSearch },
+    { to: "/canteen", label: "Столовые", hint: "Меню на день и цены", icon: UtensilsCrossed },
     { to: "/situations", label: "Жизненные ситуации", hint: "Академ, перевод, несданный экзамен", icon: LifeBuoy },
     { to: "/requests?tab=complaints", label: "Красная кнопка", hint: "Сообщить о проблеме или несправедливости", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
   ];
@@ -77,6 +83,8 @@ export function MorePage() {
     { to: "/staff/check", label: "Проверить QR", hint: "Студенческий билет или справка", icon: ScanLine },
     { to: "/staff/kb-gaps", label: "Пробелы базы", hint: "Вопросы, на которые ассистент не нашёл ответа", icon: Bot },
     { to: "/booking", label: "Брони и загрузка", hint: "Тепловая карта и отмена броней", icon: DoorOpen },
+    { to: "/campus", label: "Кампус", hint: "Свободные аудитории и корпуса", icon: MapPinned },
+    { to: "/teachers", label: "Преподаватели", hint: "Консультации по факультету", icon: UserSearch },
     { to: "/staff/complaints", label: "Обращения", hint: "Красная кнопка: очередь исполнителя", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
   ];
   const admin: Entry[] = [

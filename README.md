@@ -78,7 +78,7 @@ python -m venv .venv && .venv/bin/python -m pip install -e .
 ```
 
 ```bash
-.venv/bin/python -m unittest discover -s tests      # 277 тестов; с TEST_DATABASE_URL — на PostgreSQL
+.venv/bin/python -m unittest discover -s tests      # 282 теста; с TEST_DATABASE_URL — на PostgreSQL
 (cd apps/web && npm test && npx tsc --noEmit)
 ```
 

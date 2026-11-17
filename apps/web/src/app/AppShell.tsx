@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertOctagon, Bell, BookOpenCheck, Bot, CalendarDays, CalendarRange, ClipboardList, GraduationCap, House, LayoutGrid, Megaphone, type LucideIcon } from "lucide-react";
+import { AlertOctagon, Bell, Search, BookOpenCheck, Bot, CalendarDays, CalendarRange, ClipboardList, GraduationCap, House, LayoutGrid, Megaphone, type LucideIcon } from "lucide-react";
+import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+import { SearchDialog, useSearchShortcut } from "@/features/search/SearchDialog";
 import { BrandMark, ConceptNotice } from "@/components/Brand";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/auth";
@@ -60,12 +62,17 @@ export function Avatar({ name, className }: { name: string; className?: string }
 }
 
 /* Desktop rail: a floating white card — logo · items (icon over caption) · profile. */
-function Sidebar({ items, unread, name }: { items: Item[]; unread: number; name: string }) {
+function Sidebar({ items, unread, name, onSearch }: { items: Item[]; unread: number; name: string; onSearch: () => void }) {
   return (
     <aside className="fixed top-3 bottom-3 left-3 z-30 hidden w-[104px] flex-col rounded-[var(--radius-card)] bg-surface shadow-k-card md:flex">
       <Link to="/" className="flex shrink-0 justify-center pt-5 pb-4" aria-label="Цифровой деканат, главная">
         <BrandMark className="size-11" />
       </Link>
+      <button onClick={onSearch} aria-label="Поиск (Ctrl+K)" title="Поиск (Ctrl+K)"
+        className="soft mx-2.5 mb-2 flex flex-col items-center gap-1 rounded-[var(--radius-tile)] py-2 text-[12px] text-muted hover:bg-surface-2 hover:text-text">
+        <Search aria-hidden strokeWidth={1.75} className="size-[22px]" />
+        Поиск
+      </button>
 
       <nav aria-label="Основное меню" className="flex flex-1 flex-col justify-center gap-1 overflow-y-auto px-2.5 [scrollbar-width:none]">
         {items.map((item) => (
@@ -143,13 +150,16 @@ export function AppShell() {
   const user = data!.user;
   const isStudent = user.role === "student";
   const unread = useUnreadCount(isStudent);
+  const [searching, setSearching] = useState(false);
+  useSearchShortcut(setSearching);
   const items = NAV.filter((item) =>
     (isStudent ? !item.staffOnly && !item.adminOnly : !item.studentOnly) && (!item.adminOnly || user.role === "admin"),
   );
 
   return (
     <div className="min-h-dvh md:pl-[116px]">
-      <Sidebar items={items} unread={unread.data ?? 0} name={user.display_name} />
+      <Sidebar items={items} unread={unread.data ?? 0} name={user.display_name} onSearch={() => setSearching(true)} />
+      <SearchDialog open={searching} onClose={() => setSearching(false)} />
 
       <div className="flex min-h-dvh min-w-0 flex-col">
         <ConceptNotice />
@@ -159,6 +169,9 @@ export function AppShell() {
             <span className="text-[16px] font-medium tracking-[-0.01em]">Цифровой деканат</span>
           </Link>
           <div className="flex items-center gap-2">
+            <button onClick={() => setSearching(true)} aria-label="Поиск" className="soft grid size-10 place-items-center rounded-full bg-surface text-text shadow-k-card">
+              <Search className="size-5" strokeWidth={1.75} aria-hidden />
+            </button>
             {isStudent && (
               <Link
                 to="/notifications"

@@ -83,7 +83,7 @@ export function StaffRequestPage() {
   const transition = useRequestAction<{ to: RequestStatus; note?: string }>(id, true, (input) =>
     api<RequestDetail>(`/api/staff/requests/${id}/transition`, { method: "POST", body: input }),
   );
-  const comment = useRequestAction<{ body: string; internal: boolean }>(id, true, (input) =>
+  const comment = useRequestAction<{ body: string; internal: boolean; attachment_ids: string[] }>(id, true, (input) =>
     api<RequestDetail>(`/api/requests/${id}/comments`, { method: "POST", body: input }),
   );
 
@@ -185,7 +185,7 @@ export function StaffRequestPage() {
             canWrite={!data.closed}
             sending={comment.isPending}
             error={comment.isError ? comment.error.message : null}
-            onSend={(body, internal) => comment.mutateAsync({ body, internal })}
+            onSend={(body, internal, attachmentIds) => comment.mutateAsync({ body, internal, attachment_ids: attachmentIds })}
           />
         </div>
       </div>

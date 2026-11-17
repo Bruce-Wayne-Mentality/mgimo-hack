@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Alert, Button, Card, CardTitle, EmptyState, ErrorState, Field, Input, PageHeader, Skeleton } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { AttachButton, AttachmentList, DropZone, PendingFiles, useAttachments } from "../attachments/Attachments";
 import { dateLabel, dateTimeLabel } from "../requests/api";
 import {
   CATEGORIES,
@@ -178,6 +179,7 @@ export function NewComplaintPage() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState(0);
+  const files = useAttachments("/api/complaints/attachments", (info) => `/api/complaints/attachments/${info.id}`);
 
   useEffect(() => {
     try {
@@ -194,6 +196,7 @@ export function NewComplaintPage() {
         body: {
           session_id: session, type: draft.type, category: draft.category, text, desired_outcome: draft.desired, privacy: draft.privacy,
           link_type: draft.link?.type ?? null, link_id: draft.link?.id ?? null, link_label: draft.link?.label ?? null,
+          attachment_ids: files.ids,
         },
       }),
     onMutate: () => {
@@ -337,6 +340,14 @@ export function NewComplaintPage() {
               className="soft rounded-[var(--radius-control)] bg-surface-2 px-4 py-3 text-base focus:bg-surface focus:shadow-[var(--k-focus-ring)] focus:outline-none" />
           </Field>
           {hint && <p className="m-0 -mt-2 text-[13px] text-[#8a5a00]">В тексте есть ненормативная лексика — её попросят убрать.</p>}
+          <DropZone state={files} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <AttachButton state={files} disabled={submit.isPending} />
+              <span className="text-sm font-medium text-text-2">Файлы <span className="font-normal text-muted">(необязательно)</span></span>
+            </div>
+            <PendingFiles state={files} />
+            <p className="caption m-0">Документы (PDF, DOCX) читаем на нашем сервере. Изображения описывает GigaChat: копия уходит в Сбер только на время проверки и сразу удаляется. Файл с матом или оскорблениями не примем — обращение при этом сохранится.</p>
+          </DropZone>
           <div>
             <p className="m-0 mb-1.5 text-sm font-medium text-text-2">Чего вы хотите <span className="font-normal text-muted">(необязательно)</span></p>
             <div className="flex flex-wrap gap-1.5">
@@ -369,7 +380,7 @@ export function NewComplaintPage() {
             Текст проверит ИИ на мат и оскорбления: сначала локальная модель на нашем сервере, потом GigaChat получит копию без ваших личных данных. После принятия черновики и технические данные удаляются, IP и браузер не записываются.
           </p>
           {submit.isError && <Alert className="mt-3">{submit.error instanceof ApiError && submit.error.status === 429 ? submit.error.message : submit.error.message}</Alert>}
-          <Button type="submit" className="mt-4 w-full bg-[#e5484d] hover:bg-[#cf3b40]" disabled={length < 30} loading={submit.isPending}>
+          <Button type="submit" className="mt-4 w-full bg-[#e5484d] hover:bg-[#cf3b40]" disabled={length < 30 || files.busy} loading={submit.isPending}>
             <Send aria-hidden className="size-4" /> Отправить
           </Button>
         </Card>
@@ -402,9 +413,9 @@ export function Tracker({ status, events }: { status: ComplaintBase["status"]; e
   );
 }
 
-export function Thread({ messages }: { messages: ComplaintMessage[] }) {
+export function Thread({ messages, staff = false }: { messages: ComplaintMessage[]; staff?: boolean }) {
   if (!messages.length) return <p className="caption m-0">Сообщений пока нет.</p>;
-  const kinds: Record<string, string> = { answer: "Ответ", need_info: "Запрос информации", feedback: "Несогласие", message: "" };
+  const kinds: Record<string, string> = { answer: "Ответ", need_info: "Запрос информации", feedback: "Несогласие", message: "", files: "Файлы к обращению" };
   return (
     <div className="flex flex-col gap-2.5">
       {messages.map((m) => (
@@ -412,7 +423,8 @@ export function Thread({ messages }: { messages: ComplaintMessage[] }) {
           <p className={cn("m-0 text-[12px]", m.from_role === "student" ? "opacity-80" : "text-muted")}>
             {m.from_role === "student" ? "Студент" : m.author ?? "Деканат"}{kinds[m.kind] ? ` · ${kinds[m.kind]}` : ""} · {dateTimeLabel(m.at)}
           </p>
-          <p className="m-0 mt-0.5 text-[15px] break-words whitespace-pre-wrap">{m.body ?? "Текст удалён"}</p>
+          {m.kind !== "files" && (m.body || !m.attachments?.length) && <p className="m-0 mt-0.5 text-[15px] break-words whitespace-pre-wrap">{m.body ?? "Текст удалён"}</p>}
+          <AttachmentList files={m.attachments} inverse={m.from_role === "student"} showCheck={staff} />
         </div>
       ))}
     </div>
@@ -432,7 +444,9 @@ export function ComplaintPage() {
     client.setQueryData(["complaints", id], data);
     client.invalidateQueries({ queryKey: ["complaints"], exact: true });
   };
-  const message = useMutation({ mutationFn: () => api<ComplaintDetail>(`/api/complaints/${id}/messages`, { method: "POST", body: { text } }), onSuccess: (data) => { setText(""); set(data); } });
+  const files = useAttachments(`/api/complaints/${id}/attachments`, (info) => `/api/complaints/attachments/${info.id}`);
+  const message = useMutation({ mutationFn: () => api<ComplaintDetail>(`/api/complaints/${id}/messages`, { method: "POST", body: { text, attachment_ids: files.ids } }), onSuccess: (data) => { setText(""); files.reset(); set(data); } });
+  const canSend = (text.trim().length > 0 || files.ids.length > 0) && !files.busy;
   const feedback = useMutation({
     mutationFn: (resolved: boolean) => api<ComplaintDetail>(`/api/complaints/${id}/feedback`, { method: "POST", body: { resolved, comment: resolved ? null : comment } }),
     onSuccess: (data) => { setDisagree(false); set(data); },
@@ -504,14 +518,20 @@ export function ComplaintPage() {
                 </div>
               )}
               {data.can_message && (
-                <form onSubmit={(event) => { event.preventDefault(); if (text.trim()) message.mutate(); }} className="mt-4 flex flex-col gap-2">
+                <DropZone state={files} className="mt-4">
+                <form onSubmit={(event) => { event.preventDefault(); if (canSend) message.mutate(); }} className="flex flex-col gap-2">
                   <label htmlFor="msg" className="sr-only">Сообщение</label>
                   <textarea id="msg" rows={3} maxLength={3000} value={text} onChange={(event) => setText(event.target.value)}
                     placeholder={data.status === "NEED_INFO" ? "Ответьте на запрос — срок рассмотрения продолжится" : "Сообщение исполнителю"}
                     className="soft rounded-[var(--radius-control)] bg-surface-2 px-4 py-3 text-base focus:bg-surface focus:shadow-[var(--k-focus-ring)] focus:outline-none" />
+                  <PendingFiles state={files} />
                   {message.isError && <Alert>{message.error.message}</Alert>}
-                  <Button type="submit" className="self-end" disabled={!text.trim()} loading={message.isPending}><Send aria-hidden className="size-4" /> Отправить</Button>
+                  <div className="flex items-center justify-between gap-2">
+                    <AttachButton state={files} disabled={message.isPending} />
+                    <Button type="submit" disabled={!canSend} loading={message.isPending}><Send aria-hidden className="size-4" /> Отправить</Button>
+                  </div>
                 </form>
+                </DropZone>
               )}
             </Card>
           </div>

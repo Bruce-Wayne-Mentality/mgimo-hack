@@ -845,7 +845,9 @@ class RedButtonService:
                 self._event(db, c, "IN_PROGRESS", role)
                 title = "взято в работу"
             elif action in ("need_info", "answer") and c.status == "IN_PROGRESS":
-                self._add_message(db, c, role, user, text, action, now)
+                message = self._add_message(db, c, role, user, text, action, now)
+                await db.flush()
+                await self._claim_for_message(db, c, message, str(user.id), attachment_ids, now)
                 if action == "need_info":
                     c.paused_at = now
                     self._event(db, c, "NEED_INFO", role)

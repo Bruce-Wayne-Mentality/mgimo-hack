@@ -90,6 +90,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     from .announcements import AnnouncementService, register_announcement_routes
     from .assistant.router import register_assistant_routes
     from .booking import BookingService, register_booking_routes
+    from .campus import CampusService, register_campus_routes
     from .calendar_feed import CalendarService, register_calendar_routes
     from .gigachat import GigaChat
     from .redbutton.crypto import KeyStore
@@ -132,6 +133,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
         lambda app: register_calendar_routes(app, calendar),
         lambda app: register_redbutton_routes(app, redbutton),
         lambda app: register_booking_routes(app, booking),
+        lambda app: register_campus_routes(app, CampusService(database, schedule, booking)),
         lambda app: register_assistant_routes(app, academics, request_service, schedule),
         lambda app: register_schedule_change_routes(app, changes),
         lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database, on_reset=reload_overlay),

@@ -104,6 +104,9 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
           )}
         </div>
         {lesson.change?.note && <p className="m-0 mt-1 text-[13px] text-text-2">{lesson.change.note}</p>}
+        {lesson.room && /^[АБВ]-\d{3}$/.test(lesson.room) && !cancelled && (
+          <a href={`/campus?room=${encodeURIComponent(lesson.room)}`} className="mt-1 inline-block text-[13px] font-medium text-primary hover:underline">Как пройти</a>
+        )}
       </div>
     </article>
   );

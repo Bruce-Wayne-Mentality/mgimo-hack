@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Card, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { daysLeftLabel, shortDate, useStudy, type DisciplineSummary, type StudyOverview } from "./api";
+import { daysLeftLabel, shortDate, useStudy, type DisciplineSummary, type Forecast, type StudyOverview } from "./api";
 import { LevelBadge, MarkLabel, ScoreBar } from "./parts";
 
 const TABS = [
@@ -13,6 +13,28 @@ const TABS = [
 ] as const;
 
 type Tab = (typeof TABS)[number]["key"];
+
+function ForecastCard({ forecast }: { forecast: Forecast }) {
+  const tone = forecast.status === "at_risk" ? "bg-[#fff8e8]" : forecast.status === "unknown" ? "bg-surface" : "bg-[#e3f7ea]";
+  return (
+    <Card aria-labelledby="forecast-heading" className={tone}>
+      <CardTitle id="forecast-heading">Прогноз стипендии</CardTitle>
+      <p className="m-0 text-[17px] font-medium">{forecast.label}</p>
+      <ul className="m-0 mt-3 flex list-none flex-col gap-1.5 p-0">
+        {forecast.rows.map((row) => (
+          <li key={row.id} className="flex items-center justify-between gap-3 rounded-[var(--radius-tile)] bg-surface/70 px-3 py-2 text-sm">
+            <Link to={`/study/${row.id}`} className="min-w-0 truncate hover:text-primary">{row.title}</Link>
+            <span className={cn("shrink-0 tabular-nums", row.ok === false ? "font-medium text-[#8a5a00]" : "text-text-2")}>
+              {row.projected === null ? "рано судить" : `≈ ${row.projected} · ${row.mark}`}
+              {row.need !== null && ` · нужно ${row.need}% оставшегося`}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="caption m-0 mt-3">{forecast.note}</p>
+    </Card>
+  );
+}
 
 export function RulesPanel({ rules }: { rules: string[] }) {
   return (
@@ -196,6 +218,7 @@ export function StudyPage() {
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {study.data.disciplines.map((item) => <DisciplineCard key={item.id} item={item} />)}
                 </div>
+                <ForecastCard forecast={study.data.forecast} />
                 <RulesPanel rules={study.data.rules} />
                 <p className="caption m-0 flex items-center gap-1.5"><CalendarClock aria-hidden className="size-4" /> Данные на {shortDate(study.data.today)}. Это статус для помощи, а не рейтинг.</p>
               </>

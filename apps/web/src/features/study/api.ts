@@ -66,6 +66,14 @@ export type StudyOverview = {
   dynamics: { no: number; label: string; average: number | null; items: { title: string; control_label: string; credits: number; mark: number | null }[] }[];
   session: { discipline_id: string; title: string; control_label: string; at: string; room: string | null; admission: string; level: Level }[];
   rules: string[];
+  forecast: Forecast;
+};
+
+export type Forecast = {
+  status: "keeps" | "raised" | "at_risk" | "unknown";
+  label: string;
+  note: string;
+  rows: { id: string; title: string; control_label: string; projected: number | null; mark: string | null; ok: boolean | null; need: number | null; target?: number }[];
 };
 
 export type WhatIf = { total: number; risk: Risk; passes: boolean; mark: string };

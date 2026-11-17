@@ -8,6 +8,7 @@ import type { NotificationPage } from "@/lib/types";
 import { useMyComplaints } from "../complaints/api";
 import { OPEN, dateTimeLabel, useMyRequests } from "../requests/api";
 import { dayLabel, LessonCard, moscowDate, timeLabel, useSchedule } from "../schedule/lessons";
+import { FreeNowCard } from "../campus/FreeNow";
 import { StaffHome } from "../staff/StaffPages";
 import { useNudges, useStudy } from "../study/api";
 import { LEVEL_STYLE, LevelBadge } from "../study/parts";
@@ -248,6 +249,7 @@ function StudentHome() {
 
         <div className="flex flex-col gap-4">
           <SomethingWrong />
+          <FreeNowCard />
           <Announcements />
           <Card aria-labelledby="latest-heading">
             <CardTitle id="latest-heading" meta={<MoreLink to="/notifications">Все</MoreLink>}>

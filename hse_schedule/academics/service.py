@@ -233,6 +233,7 @@ class AcademicService:
             "dynamics": dynamics,
             "session": session,
             "rules": risk.RULES_TEXT,
+            "forecast": scholarship_forecast(items),
         }
 
     async def _own_discipline(self, db: AsyncSession, user: User, discipline_id: uuid.UUID) -> tuple[Student, Discipline]:
@@ -629,6 +630,50 @@ class AcademicService:
             if mute and await db.get(NudgeMute, (student.id, nudge.rule_code)) is None:
                 db.add(NudgeMute(student_id=student.id, rule_code=nudge.rule_code))
             await db.commit()
+
+
+def scholarship_forecast(items: list[dict]) -> dict:
+    """Academic scholarship forecast from the current pace (benchmark: HSE App X «зачётка и средний балл»).
+
+    Demo rule: the scholarship is kept when every exam and graded credit is projected at «хорошо» (70+)
+    or better and every pass/fail credit is projected as passed (55+); all «отлично» → raised (demo).
+    Projection = points now + current pace × points still to earn. It is a hint, not a promise.
+    """
+    rows = []
+    blocking = []
+    unknown = 0
+    for item in items:
+        r = item["risk"]
+        if r["level"] == "grey" or r["pace"] is None:
+            unknown += 1
+            rows.append({"id": item["id"], "title": item["title"], "control_label": item["control_label"],
+                         "projected": None, "mark": None, "ok": None, "need": None})
+            continue
+        remaining = max(0.0, 100 - r["due_weight"])
+        projected = round(min(100.0, r["points"] + r["pace"] * remaining), 1)
+        graded = item["control_form"] in ("exam", "diff_credit", "coursework")
+        target = 70 if graded else 55
+        ok = projected >= target
+        need = None
+        if not ok and remaining > 0:
+            need = round(min(1.0, max(0.0, (target - r["points"]) / remaining)) * 100)
+        row = {"id": item["id"], "title": item["title"], "control_label": item["control_label"], "projected": projected,
+               "mark": _mark_for(projected) if graded else ("зачёт" if ok else "незачёт"), "ok": ok, "need": need,
+               "target": target}
+        rows.append(row)
+        if not ok:
+            blocking.append(row)
+    excellent = all(r["projected"] is not None and (r["projected"] >= 85 or r["mark"] == "зачёт") for r in rows) and rows
+    if blocking:
+        status, label = "at_risk", f"Стипендия под угрозой: {len(blocking)} {_plural(len(blocking), 'дисциплина', 'дисциплины', 'дисциплин')} ниже нужного уровня"
+    elif unknown == len(rows):
+        status, label = "unknown", "Пока рано прогнозировать — нет оценённых работ"
+    elif excellent:
+        status, label = "raised", "Идёте на повышенную стипендию (демо-правило: все дисциплины на «отлично»)"
+    else:
+        status, label = "keeps", "Академическая стипендия сохраняется при текущем темпе"
+    return {"status": status, "label": label, "rows": rows,
+            "note": "Прогноз по текущему темпу: баллы сейчас + темп × оставшиеся баллы. Правила стипендии — демо, не норматив вуза."}
 
 
 def _mark_for(total: float) -> str:

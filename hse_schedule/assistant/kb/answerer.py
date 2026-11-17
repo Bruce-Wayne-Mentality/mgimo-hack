@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import time
 from collections import OrderedDict
@@ -139,8 +140,13 @@ def _extract(hits: list[Hit], confidence: float, mode: str) -> KbReply:
     return KbReply(text="\n\n".join(parts), kind="kb_extract", sources=[_source(h) for h in used], confidence=confidence, mode=mode)
 
 
+def answer_model() -> str | None:
+    """GIGACHAT_ANSWER_MODEL: the model that writes knowledge base answers (default — GIGACHAT_MODEL)."""
+    return (os.environ.get("GIGACHAT_ANSWER_MODEL") or "").strip() or None
+
+
 async def answer_from_kb(question: str, retriever: Retriever, gigachat, database, *, names: list[str] = (),
-                         thresholds: dict | None = None, handoff_text: str | None = None) -> KbReply:
+                         thresholds: dict | None = None, handoff_text: str | None = None, model: str | None = None) -> KbReply:
     started = time.perf_counter()
     masked = mask_question(question, names)
     expansion = await rewrite_query(gigachat, masked)
@@ -166,7 +172,8 @@ async def answer_from_kb(question: str, retriever: Retriever, gigachat, database
         user = prompts.user_message(masked, [(label, h.fragment.text, h.fragment.priority) for label, h in by_id.items()])
         try:
             answer = await asyncio.wait_for(
-                gigachat.chat_json(prompts.SYSTEM, user, answer_schema(list(by_id)), name="answer", temperature=0.1, max_tokens=700),
+                gigachat.chat_json(prompts.SYSTEM, user, answer_schema(list(by_id)), name="answer", temperature=0.1, max_tokens=700,
+                                   model=model or answer_model()),
                 timeout=TIMEOUT)
             data = answer.data if isinstance(answer.data, dict) else {}
             text = data.get("answer") if isinstance(data.get("answer"), str) else ""

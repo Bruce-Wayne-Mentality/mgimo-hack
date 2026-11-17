@@ -52,6 +52,10 @@ class RetrievalRegressionTests(unittest.TestCase):
         self.assertFalse(evaluation.answer_ok("ГАС — 15400 рублей", {"must_contain": ["5400 руб."]}))
         self.assertTrue(evaluation.answer_ok("нужна «декларация об использовании ИИ»", {"must_contain": ["Декларация об использовании ИИ"]}))
         self.assertFalse(evaluation.answer_ok("нужна справка", {"must_contain": ["086/у"]}))
+        # word forms count, missing facts do not; numbers written as words do not count
+        self.assertTrue(evaluation.answer_ok("укажите в декларации об использовании ИИ", {"must_contain": ["Декларация об использовании ИИ"]}))
+        self.assertFalse(evaluation.answer_ok("не более двух раз", {"must_contain": ["не более двух раз", "комиссией"]}))
+        self.assertFalse(evaluation.answer_ok("с первого числа", {"must_contain": ["с 1 числа месяца"]}))
 
     def test_hit_at_5_does_not_drop(self):
         self.assertGreaterEqual(self.metrics["hit@5"], 0.83)

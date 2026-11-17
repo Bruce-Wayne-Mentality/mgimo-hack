@@ -268,8 +268,7 @@ async def _kb_eval(args, database) -> str:
         out += ["", "Ответы целиком (answer_from_kb, пороги — подобранные выше):",
                 "| Модель | Верных ответов | Честных отказов | Виды ответов | Ошибки |", "| --- | --- | --- | --- | --- |"]
         for model in [m.strip() for m in args.answers.split(",") if m.strip()]:
-            giga.model = model
-            a = await evaluation.answers(retriever, questions, giga, database, tuned)
+            a = await evaluation.answers(retriever, questions, giga, database, tuned, model=model)
             kinds = ", ".join(f"{k}: {v}" for k, v in sorted(a["kinds"].items()))
             out.append(f"| {model} | {a['right']} из {a['answerable']} | {a['refused']} из {a['refusals']} | {kinds} | "
                        f"{', '.join(a['wrong']) or '—'} |")

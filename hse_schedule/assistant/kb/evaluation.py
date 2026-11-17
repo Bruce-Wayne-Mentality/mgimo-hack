@@ -183,12 +183,14 @@ def answer_ok(text: str, q: dict) -> bool:
         if numbers:
             if not all(re.search(rf"(?<!\d){n}(?!\d)", low) for n in numbers):
                 return False
-        elif item.lower().replace("ё", "е") not in low:
+        elif not set(tokens(item)) <= set(tokens(text)):
+            # word forms: «в декларации об использовании ИИ» carries «Декларация об использовании ИИ»
             return False
     return True
 
 
-async def answers(retriever: Retriever, questions: list[dict], giga, database, thresholds: dict | None = None) -> dict:
+async def answers(retriever: Retriever, questions: list[dict], giga, database, thresholds: dict | None = None,
+                  model: str | None = None) -> dict:
     """End to end: answer_from_kb for every question with this GigaChat model."""
     from .answerer import answer_from_kb
 
@@ -196,7 +198,7 @@ async def answers(retriever: Retriever, questions: list[dict], giga, database, t
     right = refused = 0
     wrong: list[str] = []
     for q in questions:
-        reply = await answer_from_kb(q["question"], retriever, giga, database, thresholds=thresholds)
+        reply = await answer_from_kb(q["question"], retriever, giga, database, thresholds=thresholds, model=model)
         kinds[reply.kind] = kinds.get(reply.kind, 0) + 1
         if q["answerable"]:
             if reply.kind != "kb_refusal" and answer_ok(reply.text, q):

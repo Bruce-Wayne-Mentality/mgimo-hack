@@ -65,9 +65,9 @@ class KbGapsTests(FeatureTestCase):
         self.assertEqual(self.client(STAFF).post(f"/api/staff/kb/gaps/{gap['id']}/reject").status_code, 409)
 
     def test_queue_has_no_student_identity_or_contacts(self):
-        self.ask("Где взять пропуск для гостя на конференцию? Пишите anna.private@example.org или +7 916 777-88-99")
+        self.ask("Сколько стоит абонемент в бассейн? Пишите anna.private@example.org или +7 916 777-88-99")
         items = self.gaps()
-        self.assertTrue(any("пропуск для гостя" in g["question"] for g in items))  # really queued, not vacuous
+        self.assertTrue(any("абонемент в бассейн" in g["question"] for g in items))  # really queued, not vacuous
         dump = str(items)
         self.assertNotIn("anna.private@example.org", dump)
         self.assertNotIn("777-88-99", dump)

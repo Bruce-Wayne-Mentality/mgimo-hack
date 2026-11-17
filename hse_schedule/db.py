@@ -112,6 +112,7 @@ class Database:
         """Test helper; production schema comes from Alembic migrations."""
         from . import academics, accounts, announcements, booking, calendar_feed, documents, redbutton, schedule_changes, student_requests  # noqa: F401  (registers models)
         from .assistant import kb  # noqa: F401
+        from .attachments import models as _attachments  # noqa: F401
 
         async with self.engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)

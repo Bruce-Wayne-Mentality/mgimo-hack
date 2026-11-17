@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { AttachmentInfo } from "../attachments/Attachments";
 import { api } from "@/lib/api";
 
 export type ComplaintStatus = "MODERATION" | "NEW" | "IN_PROGRESS" | "NEED_INFO" | "ANSWERED" | "ESCALATED" | "CLOSED" | "WITHDRAWN" | "RETURNED";
@@ -33,7 +34,7 @@ export type ComplaintBase = {
   waiting_for_me?: boolean;
 };
 
-export type ComplaintMessage = { id: string; from_role: string; author: string | null; kind: string; body: string | null; at: string };
+export type ComplaintMessage = { id: string; from_role: string; author: string | null; kind: string; body: string | null; at: string; attachments?: AttachmentInfo[] };
 export type ComplaintEvent = { to: ComplaintStatus; label: string; at: string; by: string };
 
 export type ComplaintDetail = ComplaintBase & {

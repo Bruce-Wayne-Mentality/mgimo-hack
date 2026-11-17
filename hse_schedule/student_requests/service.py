@@ -175,10 +175,17 @@ class RequestService:
     async def cancel(self, user: User, request_id: uuid.UUID) -> StudentRequest:
         return await self._student_transition(user, request_id, "cancelled")
 
-    async def comment(self, user: User, request_id: uuid.UUID, body: str, *, internal: bool = False) -> StudentRequest:
+    async def comment(self, user: User, request_id: uuid.UUID, body: str, *, internal: bool = False,
+                      attachment_ids: list[uuid.UUID] = ()) -> StudentRequest:
+        from ..attachments.files import limits
+        from ..attachments.models import RequestAttachment
+
         body = body.strip()
-        if not body:
-            raise RequestError(422, "validation_failed", "Напишите сообщение.", {"body": "Напишите сообщение."})
+        attachment_ids = list(dict.fromkeys(attachment_ids))
+        if not body and not attachment_ids:
+            raise RequestError(422, "validation_failed", "Напишите сообщение или прикрепите файл.", {"body": "Напишите сообщение."})
+        if len(attachment_ids) > limits().max_files:
+            raise RequestError(422, "too_many_files", f"Не больше {limits().max_files} файлов в одном сообщении.")
         if len(body) > NOTE_MAX:
             raise RequestError(422, "validation_failed", f"Не больше {NOTE_MAX} символов.", {"body": f"Не больше {NOTE_MAX} символов."})
         actor = Actor(user)
@@ -191,7 +198,17 @@ class RequestService:
                 raise not_found()
             if actor.kind == "student" and request.status not in STUDENT_COMMENT_STATUSES:
                 raise RequestError(409, "invalid_state", "По закрытой заявке писать нельзя.")
-            db.add(RequestComment(request=request, author_id=user.id, body=body, internal=internal, created_at=now))
+            comment = RequestComment(request=request, author_id=user.id, body=body, internal=internal, created_at=now)
+            db.add(comment)
+            if attachment_ids:
+                await db.flush()
+                files = (await db.scalars(select(RequestAttachment).where(
+                    RequestAttachment.id.in_(attachment_ids), RequestAttachment.request_id == request.id,
+                    RequestAttachment.uploader_id == user.id, RequestAttachment.comment_id.is_(None)))).all()
+                if len(files) != len(attachment_ids):
+                    raise RequestError(422, "attachments_invalid", "Файл не найден — загрузите его снова.")
+                for row in files:
+                    row.comment_id, row.attached_at = comment.id, now
             if actor.kind == "student" and request.status == "needs_info":
                 # FR-REQ-5: the student's answer sends the request back to work.
                 self._move(db, request, "in_review", actor=user, now=now, note="Ответ студента")

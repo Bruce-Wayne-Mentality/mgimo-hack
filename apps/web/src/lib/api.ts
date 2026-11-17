@@ -27,6 +27,10 @@ export function setCsrfToken(token: string | null): void {
   csrfToken = token;
 }
 
+export function getCsrfToken(): string | null {
+  return csrfToken;
+}
+
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }
@@ -39,6 +43,10 @@ type Options = {
   /** Do not trigger the global "session ended" handler on 401. */
   quiet401?: boolean;
 };
+
+export function apiErrorFrom(status: number, data: unknown, retryAfter: string | null): ApiError {
+  return errorFrom(status, data, retryAfter);
+}
 
 function errorFrom(status: number, data: unknown, retryAfter: string | null): ApiError {
   const retry = retryAfter ? Number.parseInt(retryAfter, 10) : null;

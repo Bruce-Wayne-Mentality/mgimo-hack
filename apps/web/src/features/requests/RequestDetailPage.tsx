@@ -5,12 +5,13 @@ import { Alert, Button, Card, CardTitle, ErrorState, PageHeader, Skeleton } from
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { OPEN, dateLabel, dateTimeLabel, useRequest, useRequestAction, type RequestDetail } from "./api";
+import { AttachButton, AttachmentList, DropZone, PendingFiles, useAttachments } from "../attachments/Attachments";
 import { DocumentCard } from "../documents/DocumentCard";
 import { StatusChip, Tracker } from "./parts";
 
 export function Conversation({ request, onSend, sending, error, canWrite, staff = false }: {
   request: RequestDetail;
-  onSend: (body: string, internal: boolean) => Promise<unknown>;
+  onSend: (body: string, internal: boolean, attachmentIds: string[]) => Promise<unknown>;
   sending: boolean;
   error: string | null;
   canWrite: boolean;
@@ -18,11 +19,14 @@ export function Conversation({ request, onSend, sending, error, canWrite, staff 
 }) {
   const [body, setBody] = useState("");
   const [internal, setInternal] = useState(false);
+  const files = useAttachments(`/api/requests/${request.id}/attachments`, (info) => info.url ?? "");
+  const canSend = (body.trim().length > 0 || files.ids.length > 0) && !files.busy;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!body.trim()) return;
-    await onSend(body.trim(), internal);
+    if (!canSend) return;
+    await onSend(body.trim(), internal, files.ids);
     setBody("");
+    files.reset();
   };
   return (
     <Card aria-labelledby="conversation-heading">
@@ -41,12 +45,14 @@ export function Conversation({ request, onSend, sending, error, canWrite, staff 
             <p className={cn("m-0 text-[12px]", comment.mine && !comment.internal ? "opacity-80" : "text-muted")}>
               {comment.internal ? "Внутренняя заметка · " : ""}{comment.author} · {dateTimeLabel(comment.at)}
             </p>
-            <p className="m-0 mt-0.5 text-[15px] break-words whitespace-pre-wrap">{comment.body}</p>
+            {comment.body && <p className="m-0 mt-0.5 text-[15px] break-words whitespace-pre-wrap">{comment.body}</p>}
+            <AttachmentList files={comment.attachments} inverse={comment.mine && !comment.internal} />
           </div>
         ))}
       </div>
       {canWrite && (
-        <form onSubmit={submit} className="mt-4 flex flex-col gap-2">
+        <DropZone state={files} className="mt-4">
+        <form onSubmit={submit} className="flex flex-col gap-2">
           <label htmlFor="comment" className="sr-only">Сообщение</label>
           <textarea
             id="comment"
@@ -57,19 +63,24 @@ export function Conversation({ request, onSend, sending, error, canWrite, staff 
             placeholder={staff ? "Сообщение студенту" : request.status === "needs_info" ? "Ответьте сотруднику — заявка вернётся в работу" : "Сообщение сотруднику деканата"}
             className="soft w-full rounded-[var(--radius-control)] border border-transparent bg-surface-2 px-4 py-3 text-base hover:bg-bg focus:border-primary focus:bg-surface focus:shadow-[var(--k-focus-ring)] focus:outline-none"
           />
+          <PendingFiles state={files} />
           {error && <Alert>{error}</Alert>}
           <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1">
+            <AttachButton state={files} disabled={sending} />
             {staff ? (
               <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-text-2">
                 <input type="checkbox" checked={internal} onChange={(event) => setInternal(event.target.checked)} className="size-4 accent-[var(--primary)]" />
                 Внутренняя заметка (студент не увидит)
               </label>
-            ) : <span />}
-            <Button type="submit" loading={sending} disabled={!body.trim()}>
+            ) : null}
+            </div>
+            <Button type="submit" loading={sending} disabled={!canSend}>
               <Send className="size-4" aria-hidden /> Отправить
             </Button>
           </div>
         </form>
+        </DropZone>
       )}
     </Card>
   );
@@ -95,7 +106,7 @@ export function RequestDetailPage() {
   const { id = "" } = useParams();
   const request = useRequest(id);
   const cancel = useRequestAction<void>(id, false, () => api<RequestDetail>(`/api/requests/${id}/cancel`, { method: "POST" }));
-  const comment = useRequestAction<{ body: string }>(id, false, (input) =>
+  const comment = useRequestAction<{ body: string; attachment_ids: string[] }>(id, false, (input) =>
     api<RequestDetail>(`/api/requests/${id}/comments`, { method: "POST", body: input }),
   );
   const [confirming, setConfirming] = useState(false);
@@ -184,7 +195,7 @@ export function RequestDetailPage() {
             canWrite={data.can_reply}
             sending={comment.isPending}
             error={comment.isError ? comment.error.message : null}
-            onSend={(body) => comment.mutateAsync({ body })}
+            onSend={(body, _internal, attachmentIds) => comment.mutateAsync({ body, attachment_ids: attachmentIds })}
           />
         </div>
       </div>

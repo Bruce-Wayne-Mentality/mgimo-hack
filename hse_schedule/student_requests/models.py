@@ -101,6 +101,8 @@ class RequestComment(Base):
 
     request: Mapped[StudentRequest] = relationship(back_populates="comments")
     author: Mapped[User | None] = relationship(lazy="joined")
+    attachments: Mapped[list["RequestAttachment"]] = relationship(  # noqa: F821
+        "RequestAttachment", lazy="selectin", viewonly=True, order_by="RequestAttachment.created_at")
 
 
 class RequestCounter(Base):
@@ -110,3 +112,6 @@ class RequestCounter(Base):
 
     year: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     value: Mapped[int] = mapped_column(Integer, default=0)
+
+
+from ..attachments.models import RequestAttachment  # noqa: E402,F401  (registers the mapped class for the relationship)

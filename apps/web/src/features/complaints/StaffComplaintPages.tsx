@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router";
 import { Alert, Button, Card, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { AttachButton, DropZone, PendingFiles, useAttachments } from "../attachments/Attachments";
 import { dateLabel, dateTimeLabel } from "../requests/api";
 import { CATEGORIES, type StaffComplaint, type StaffDetail } from "./api";
 import { StatusBadge, Thread, Tracker } from "./ComplaintPages";
@@ -109,10 +110,12 @@ export function StaffComplaintPage() {
   const client = useQueryClient();
   const item = useQuery({ queryKey: ["staff-complaints", id], queryFn: () => api<StaffDetail>(`/api/staff/complaints/${id}`) });
   const [text, setText] = useState("");
+  const files = useAttachments(`/api/staff/complaints/${id}/attachments`, (info) => `/api/complaints/attachments/${info.id}`);
   const act = useMutation({
-    mutationFn: (action: string) => api<StaffDetail>(`/api/staff/complaints/${id}/status`, { method: "POST", body: { action, text: text.trim() || null } }),
+    mutationFn: (action: string) => api<StaffDetail>(`/api/staff/complaints/${id}/status`, { method: "POST", body: { action, text: text.trim() || null, attachment_ids: ["message", "answer", "need_info"].includes(action) ? files.ids : [] } }),
     onSuccess: (data) => {
       setText("");
+      files.reset();
       client.setQueryData(["staff-complaints", id], data);
       client.invalidateQueries({ queryKey: ["staff-complaints"], exact: false });
       client.invalidateQueries({ queryKey: ["moderation"] });
@@ -162,12 +165,15 @@ export function StaffComplaintPage() {
             </Card>
             <Card>
               <CardTitle>Переписка</CardTitle>
-              <Thread messages={data.messages} />
+              <Thread messages={data.messages} staff />
               {data.actions.length > 0 && (
                 <div className="mt-4 flex flex-col gap-2">
                   {textActions.length > 0 && (
+                    <DropZone state={files} className="flex flex-col gap-2">
                     <textarea rows={3} value={text} onChange={(event) => setText(event.target.value)} placeholder="Ответ, запрос информации или комментарий"
                       className="soft rounded-[var(--radius-control)] bg-surface-2 px-4 py-3 text-base focus:bg-surface focus:shadow-[var(--k-focus-ring)] focus:outline-none" />
+                    <div className="flex items-start gap-2"><AttachButton state={files} disabled={act.isPending} /><div className="min-w-0 flex-1 pt-2.5"><PendingFiles state={files} hint="Файлы прикрепятся к сообщению, ответу или запросу информации." /></div></div>
+                    </DropZone>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {plainActions.map((a) => <Button key={a.action} loading={act.isPending && act.variables === a.action} onClick={() => act.mutate(a.action)}>{a.label}</Button>)}

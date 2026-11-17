@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AttachmentInfo } from "../attachments/Attachments";
 import { api } from "@/lib/api";
 
 export type FieldKind = "text" | "textarea" | "int" | "select" | "date";
@@ -44,7 +45,7 @@ export type RequestDetail = Omit<RequestSummary, "type"> & {
   fields: { name: string; label: string; value: string }[];
   events: { from: RequestStatus | null; to: RequestStatus; label: string; at: string; note: string | null; by_system: boolean }[];
   track: { status: RequestStatus; label: string; at: string | null }[];
-  comments: { id: string; body: string; at: string; internal: boolean; mine: boolean; author: string; from_staff: boolean }[];
+  comments: { id: string; body: string; at: string; internal: boolean; mine: boolean; author: string; from_staff: boolean; attachments?: AttachmentInfo[] }[];
   result_note: string | null;
   can_cancel: boolean;
   can_reply: boolean;

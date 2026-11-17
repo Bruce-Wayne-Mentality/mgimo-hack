@@ -126,6 +126,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     from .redbutton.service import RedButtonService
     from .admin import register_admin_routes
     from .documents.router import register_document_routes
+    from .attachments.requests import register_request_attachment_routes
     from .documents.service import DocumentService
     from .schedule_changes import Overlay, ScheduleChangeService, register_schedule_change_routes
     from .student_id import StudentIdService, register_student_id_routes
@@ -156,6 +157,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     return (
         lambda app: register_academic_routes(app, academics),
         lambda app: register_document_routes(app, documents),
+        lambda app: register_request_attachment_routes(app, database, request_service),
         lambda app: register_student_id_routes(app, student_id),
         lambda app: register_announcement_routes(app, announcements),
         lambda app: register_calendar_routes(app, calendar),
@@ -488,6 +490,7 @@ def main(argv: list[str] | None = None) -> int:
             state_dir = args.state_dir / ("demo" if args.demo else "live")
             # Red-button keys live next to the server state, outside the database and its backups.
             os.environ.setdefault("REDBUTTON_KEY_DIR", str((state_dir / "keys").resolve()))
+            os.environ.setdefault("ATTACHMENTS_DIR", str((state_dir / "attachments").resolve()))
             database_url = _database_url(args)
             if args.demo and not database_url:
                 state_dir.mkdir(parents=True, exist_ok=True)

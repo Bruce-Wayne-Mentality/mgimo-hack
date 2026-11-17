@@ -94,8 +94,9 @@ def check_answer(answer: str, used: list[str], sources: dict[str, Hit]) -> str |
         return "unknown_source"
     # A cited rule that points to another clause («применяется п. 5.1 Положения…») is only half
     # of the answer: the clause it points to must be cited too (conflict and cross-reference traps).
+    cited_fragments = {sources[u].fragment.id for u in used if u in sources}
     for hit in sources.values():
-        if hit.referenced_by is not None and str(hit.referenced_by) in used and str(hit.fragment.id) not in used:
+        if hit.referenced_by is not None and hit.referenced_by in cited_fragments and hit.fragment.id not in cited_fragments:
             return "reference_ignored"
     cited = "\n".join(sources[chunk_id].fragment.text for chunk_id in used)
     cited_flat = cited.replace(" ", "").replace(" ", "")
@@ -141,8 +142,10 @@ async def answer_from_kb(question: str, retriever: Retriever, gigachat, database
     reply: KbReply | None = None
     reason = "no_gigachat"
     if gigachat is not None:
-        by_id = {str(h.fragment.id): h for h in hits}
-        user = prompts.user_message(masked, [(str(h.fragment.id), h.fragment.text, h.fragment.priority) for h in hits])
+        # Short labels S1…S5 instead of UUIDs: GigaChat-2-Max returned empty strings for long ids
+        # in used_sources (kb-eval --answers, 17.11.2026). The server maps labels back to fragments.
+        by_id = {f"S{n}": h for n, h in enumerate(hits, start=1)}
+        user = prompts.user_message(masked, [(label, h.fragment.text, h.fragment.priority) for label, h in by_id.items()])
         try:
             answer = await asyncio.wait_for(
                 gigachat.chat_json(prompts.SYSTEM, user, prompts.SCHEMA, name="answer", temperature=0.1, max_tokens=700),

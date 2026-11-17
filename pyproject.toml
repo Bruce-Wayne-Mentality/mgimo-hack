@@ -22,6 +22,7 @@ dependencies = [
     "cryptography>=42",
     "onnxruntime>=1.18",
     "tokenizers>=0.19",
+    "numpy>=1.26",
     "tzdata>=2024.1; sys_platform == 'win32'",
 ]
 
@@ -39,4 +40,4 @@ hse-schedule = "hse_schedule.cli:main"
 include = ["hse_schedule*"]
 
 [tool.setuptools.package-data]
-hse_schedule = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py", "assets/fonts/*", "academics/*.json", "assistant/*.json"]
+hse_schedule = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py", "assets/fonts/*", "academics/*.json", "assistant/*.json", "assistant/kb/*.json"]

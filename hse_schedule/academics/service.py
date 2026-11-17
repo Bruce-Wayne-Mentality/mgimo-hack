@@ -447,9 +447,8 @@ class AcademicService:
                 existing.graded_by = user.id
             db.add(GradeChange(student_id=student.id, checkpoint_id=checkpoint.id, old_score=old, new_score=score,
                                changed_by=user.id, changed_by_name=user.display_name, reason=reason, at=now))
-            db.add(AuditLog(actor_id=user.id, action="grade.set", object_type="grade",
-                            object_id=f"{student.id}:{checkpoint.id}",
-                            meta={"old": old, "new": score, "discipline": discipline.code}))
+            db.add(AuditLog(actor_id=user.id, action="grade.set", object_type="student", object_id=str(student.id),
+                            meta={"old": old, "new": score, "discipline": discipline.code, "checkpoint": str(checkpoint.id)}))
             await db.flush()
             after_result = await self._snapshot(db, discipline, student, today, now)
             row = await self._gradebook_row(db, discipline, student, today)

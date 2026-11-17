@@ -165,7 +165,7 @@ class Retriever:
         """mode: hybrid (default), bm25 or vector — the last two exist for the evaluation.
 
         expansion: terms of the regulations for the same question (from rewrite_query); BM25 runs
-        on the question and on «question + terms», and both rankings join the RRF fusion.
+        on the question and on the terms alone, and both rankings join the RRF fusion.
         """
         state = self._state
         if not state.fragments:
@@ -177,7 +177,7 @@ class Retriever:
         expanded_all: list[float] | None = None
         expanded_rank: list[int] = []
         if expansion and expansion.strip() and mode != "vector":
-            expanded_all = state.bm25.scores(f"{query} {expansion}")
+            expanded_all = state.bm25.scores(expansion)  # the terms alone: a second, independent view of the question
             expanded_rank = sorted((i for i in allowed if expanded_all[i] > 0), key=lambda i: -expanded_all[i])[:POOL]
 
         cosines: np.ndarray | None = None
@@ -208,6 +208,11 @@ class Retriever:
         result = SearchResult(hits=hits, mode=used)
         if hits:
             top = hits[0]
+            if used == "bm25_rewrite":
+                # Found live: «нейросетями в курсовой» put a weak clause first (it got votes from both
+                # rankings for «курсовая»), while the strong match from the rewrite was lower. With
+                # rewriting, confidence comes from the strongest word match among the returned hits.
+                top = max(hits, key=lambda h: h.bm25)
             result.top_bm25 = top.bm25
             result.top_cosine = top.cosine
             terms = set(tokens(query))

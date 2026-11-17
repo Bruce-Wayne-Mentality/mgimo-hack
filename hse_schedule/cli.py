@@ -196,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
     seed = commands.add_parser("seed-demo", help="Создать вымышленные факультеты, группы и тестовые аккаунты")
     seed.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
 
+    probe = commands.add_parser("gigachat-probe", help="Пробный вызов эмбеддингов GigaChat: модель, размерность, время")
+    probe.add_argument("--model", help="По умолчанию GIGACHAT_EMBED_MODEL или Embeddings")
+
     serve = commands.add_parser("serve", help="Запустить API и личный кабинет")
     serve.add_argument("--demo", action="store_true", help="Синтетическое расписание и тестовые аккаунты для жюри")
     serve.add_argument("--database-url", help="По умолчанию DATABASE_URL; в --demo без него используется SQLite")
@@ -245,6 +248,22 @@ def main(argv: list[str] | None = None) -> int:
             created = _run(run())
             store.close()
             print(f"Демо-данные сброшены: {created}")
+        elif args.command == "gigachat-probe":
+            from .gigachat import GigaChat, GigaChatUnavailable, probe
+
+            giga = GigaChat.from_env()
+            if giga is not None and args.model:
+                giga.embed_model = args.model
+            try:
+                result = _run(probe(giga))
+            except GigaChatUnavailable as error:
+                print(f"GigaChat недоступен: {error}")
+                return 1
+            if not result["configured"]:
+                print("Ключ не задан (GIGACHAT_CREDENTIALS) — пробный вызов пропущен.")
+            else:
+                print(f"Модель: {result['model']}; размерность вектора: {result['dimension']}; "
+                      f"векторов: {result['count']}; время ответа: {result['latency_ms']} мс")
         elif args.command in ("db-upgrade", "seed-demo"):
             url = _database_url(args)
             if not url:

@@ -1,0 +1,22 @@
+{
+  "name": "Цифровой деканат · концепт",
+  "short_name": "Деканат",
+  "description": "Личный кабинет студента — концепт для конкурса, не официальный сервис вуза.",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#EEF2FB",
+  "theme_color": "#2F6AE6",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Студенческий билет", "short_name": "Студенческий", "url": "/student-id", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Расписание", "url": "/schedule", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Свободные аудитории", "short_name": "Свободно", "url": "/campus?tab=free", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Справка за минуту", "short_name": "Справка", "url": "/requests/new?type=CERT_STUDY", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

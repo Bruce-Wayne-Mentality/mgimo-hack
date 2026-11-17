@@ -152,7 +152,7 @@ export function DisciplinePage() {
       <PageHeader eyebrow={back} title={data.title}>
         <div className="flex flex-wrap items-center gap-2">
           <LevelBadge level={data.risk.level} label={data.risk.label} />
-          <span className="caption">{data.control_label} · {data.teacher}</span>
+          <span className="caption">{data.control_label} · <Link to={`/teachers?q=${encodeURIComponent(data.teacher.split(" ")[0] ?? "")}`} className="text-primary hover:underline">{data.teacher}</Link></span>
         </div>
       </PageHeader>
 

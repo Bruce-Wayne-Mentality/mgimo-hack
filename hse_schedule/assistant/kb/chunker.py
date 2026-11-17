@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from .blocks import Block, table_text
 
 LIMIT = 400  # approximate tokens per fragment
+VERSION = "3"  # bump on any change of parsing or cutting rules: kb-build then re-cuts every document
 SENTENCE = re.compile(r"(?<=[.!?…»])\s+(?=[А-ЯЁA-Z«(0-9])")
 
 
@@ -75,6 +76,8 @@ def chunk(blocks: list[Block], doc_title: str) -> list[Chunk]:
     parent: str | None = None  # number of the clause the last fragment holds
 
     def add(body: str, path: str, page: int | None, kind: str) -> None:
+        # Tried in kb-eval: putting the section title into the prefix lowered hit@1 from 0.58 to 0.50
+        # (docs/rag/EVAL.md), so the prefix names the section by number only.
         text = f"[{doc_title} › {path}]\n{body}" if path else f"[{doc_title}]\n{body}"
         chunks.append(Chunk(text=text, body=body, section_path=path, page=page, kind=kind, tokens=count_tokens(text)))
 

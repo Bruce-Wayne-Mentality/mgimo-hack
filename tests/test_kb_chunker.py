@@ -32,8 +32,9 @@ class ChunkerTests(unittest.TestCase):
         self.assertIn("не более двух раз, вторая — комиссией", chunks[1].text)
 
     def test_every_fragment_has_the_document_prefix(self):
-        chunks = chunk([heading("1.", "Общие"), clause("1.1.", "Текст пункта.")], "Положение о стипендиях")
+        chunks = chunk([heading("1.", "Общие положения"), clause("1.1.", "Текст пункта.")], "Положение о стипендиях")
         self.assertTrue(chunks[0].text.startswith("[Положение о стипендиях › Раздел 1 › п. 1.1]\n"))
+        self.assertEqual(chunks[0].section_path, "Раздел 1 › п. 1.1")
         self.assertEqual(chunks[0].body, "1.1. Текст пункта.")
 
     def test_sub_clause_joins_its_parent_while_it_fits(self):

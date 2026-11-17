@@ -39,7 +39,8 @@ async def ingest_manifest(session: AsyncSession, manifest_path: str | Path, root
         path = root / entry["source_path"]
         if not path.is_file():
             raise FileNotFoundError(f"{entry['doc_id']}: нет файла {path}")
-        digest = sha256_file(path)
+        # The file and the cutting rules together: new rules must re-cut unchanged files.
+        digest = hashlib.sha256(f"{sha256_file(path)}:{chunker.VERSION}".encode()).hexdigest()
         existing = await session.scalar(select(KbDocument).where(KbDocument.doc_id == entry["doc_id"]))
         if existing and existing.content_hash == digest and existing.status == entry["status"]:
             report.append({"doc_id": entry["doc_id"], "status": "unchanged", "chunks": None, "tables": None})

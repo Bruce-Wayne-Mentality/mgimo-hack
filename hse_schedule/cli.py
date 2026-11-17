@@ -169,6 +169,57 @@ def _kb_database_url(args) -> str:
     return f"sqlite:///{(state_dir / 'app.sqlite3').resolve().as_posix()}"
 
 
+async def _kb_eval(args, database) -> str:
+    import json as _json
+
+    from .assistant.kb import evaluation
+    from .assistant.kb.ingest import ingest_manifest
+    from .assistant.kb.retriever import THRESHOLDS, Retriever, load_thresholds
+    from .gigachat import GigaChat
+
+    manifest = args.manifest or args.questions.parent / "manifest.json"
+    async with database.session() as db:
+        await ingest_manifest(db, manifest)
+    giga = None if args.bm25_only else GigaChat.from_env()
+    retriever = Retriever(giga)
+    await retriever.reload(database)
+    questions = evaluation.load_questions(args.questions)
+    results = {"bm25": await evaluation.run_mode(retriever, questions, "bm25")}
+    vectors_ready = retriever.vectors > 0 and giga is not None
+    for mode in ("vector", "hybrid"):
+        rows = await evaluation.run_mode(retriever, questions, mode) if vectors_ready else None
+        if rows is not None and any(r["result"].mode == "bm25_only" for r in rows):
+            rows = None  # the query vector was unavailable: these are not vector numbers
+        results[mode] = rows
+    thresholds = load_thresholds()
+    out = [f"Фрагментов в поиске: {retriever.size}, с вектором: {retriever.vectors}; вопросов: {len(questions)}", ""]
+    table, _ = evaluation.report(results, thresholds)
+    out += ["Пороги — текущие из thresholds.json:", table, ""]
+    tuned = dict(thresholds)
+    bm25 = evaluation.calibrate(results["bm25"], "bm25_only")
+    out.append("Калибровка BM25: " + (f"min_bm25={bm25['min_bm25']}, min_term_coverage={bm25['min_term_coverage']}, "
+                                     f"с ответом проходят {bm25['accepted']} (подходящих пар порогов: {bm25['pairs']})"
+                                     if bm25["found"] else "пары порогов, при которой отклоняются все вопросы без ответа, нет"))
+    if bm25["found"]:
+        tuned["bm25_only"] = {"min_bm25": bm25["min_bm25"], "min_term_coverage": bm25["min_term_coverage"]}
+    if results["hybrid"] is not None:
+        hybrid = evaluation.calibrate(results["hybrid"], "hybrid")
+        out.append("Калибровка гибрида: " + (f"min_cosine={hybrid['min_cosine']}, min_term_coverage={hybrid['min_term_coverage']}, "
+                                            f"с ответом проходят {hybrid['accepted']}" if hybrid["found"] else "подходящей пары нет"))
+        if hybrid["found"]:
+            tuned["hybrid"] = {"min_cosine": hybrid["min_cosine"], "min_term_coverage": hybrid["min_term_coverage"]}
+    else:
+        out.append("Калибровка гибрида: не измерено (нет векторов)")
+    table, _ = evaluation.report(results, tuned)
+    out += ["", "С подобранными порогами:", table, "", "Промахи (эталон не на первом месте):"]
+    out += evaluation.failures(results["bm25"]) or ["нет"]
+    if args.calibrate:
+        tuned["calibrated"] = True
+        THRESHOLDS.write_text(_json.dumps(tuned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        out.append(f"\nПороги записаны в {THRESHOLDS.name}")
+    return "\n".join(out)
+
+
 def _kb_command(args) -> int:
     from .assistant.kb import commands as kb
     from .db import Database
@@ -183,6 +234,8 @@ def _kb_command(args) -> int:
         try:
             if args.command == "kb-build":
                 return await kb.build(database, args.manifest)
+            if args.command == "kb-eval":
+                return await _kb_eval(args, database)
             if args.command == "kb-embed":
                 giga = GigaChat.from_env()
                 if giga is None:
@@ -197,6 +250,9 @@ def _kb_command(args) -> int:
     except GigaChatUnavailable as error:
         print(f"GigaChat недоступен ({error}). Уже посчитанные векторы сохранены; повторите kb-embed позже.")
         return 1
+    if args.command == "kb-eval":
+        print(result)
+        return 0
     if args.command == "kb-build":
         for row in result:
             if row["status"] == "unchanged":
@@ -272,6 +328,12 @@ def main(argv: list[str] | None = None) -> int:
     kb_db(kb_embed)
     kb_stats = commands.add_parser("kb-stats", help="База знаний: документы, фрагменты, векторы, открытые пробелы")
     kb_db(kb_stats)
+    kb_eval = commands.add_parser("kb-eval", help="База знаний: оценка поиска на тестовых вопросах и калибровка порога")
+    kb_eval.add_argument("--questions", type=Path, default=Path("rag_test_data/questions.json"))
+    kb_eval.add_argument("--manifest", type=Path, help="По умолчанию manifest.json рядом с вопросами; база обновляется перед оценкой")
+    kb_eval.add_argument("--bm25-only", action="store_true", help="Не обращаться к GigaChat (векторные режимы — «не измерено»)")
+    kb_eval.add_argument("--calibrate", action="store_true", help="Записать подобранные пороги в thresholds.json")
+    kb_db(kb_eval)
 
     serve = commands.add_parser("serve", help="Запустить API и личный кабинет")
     serve.add_argument("--demo", action="store_true", help="Синтетическое расписание и тестовые аккаунты для жюри")
@@ -322,7 +384,7 @@ def main(argv: list[str] | None = None) -> int:
             created = _run(run())
             store.close()
             print(f"Демо-данные сброшены: {created}")
-        elif args.command in ("kb-build", "kb-embed", "kb-stats"):
+        elif args.command in ("kb-build", "kb-embed", "kb-stats", "kb-eval"):
             return _kb_command(args)
         elif args.command == "gigachat-probe":
             from .gigachat import GigaChat, GigaChatUnavailable, probe

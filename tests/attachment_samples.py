@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import zipfile
+from xml.sax.saxutils import escape
 
 
 def png(text: str = "TEST") -> bytes:
@@ -50,9 +51,9 @@ def docx(text: str = "Тестовый документ Word без смысла
         z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
                    '<Default Extension="xml" ContentType="application/xml"/></Types>')
         z.writestr("word/document.xml", '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-                   f'<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body></w:document>')
+                   f'<w:body><w:p><w:r><w:t>{escape(text)}</w:t></w:r></w:p></w:body></w:document>')
         z.writestr("docProps/core.xml", '<?xml version="1.0"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
-                   f'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>{author}</dc:creator></cp:coreProperties>')
+                   f'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>{escape(author)}</dc:creator></cp:coreProperties>')
     return out.getvalue()
 
 

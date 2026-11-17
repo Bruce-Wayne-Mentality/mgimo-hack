@@ -29,6 +29,11 @@ from ..gigachat import GigaChat, GigaChatBlacklisted, GigaChatUnavailable
 from ..student_requests.service import add_business_days
 from . import stage1, stage2
 from .crypto import KeyStore
+from ..accounts.policy import can_open_complaint_attachment
+from ..attachments import storage
+from ..attachments.files import AttachmentError, limits, prepare
+from ..attachments.models import ComplaintAttachment
+from . import attachments
 from .models import (
     Complaint,
     ComplaintAuthor,
@@ -65,10 +70,11 @@ MODERATION_REASONS = {
     "risk_threat": "Возможная угроза", "risk_self_harm": "Риск для автора", "risk_safety": "Опасность в здании",
     "ai_insult": "ИИ видит оскорбление", "ai_unavailable": "ИИ-проверка не удалась", "ai_blacklist": "Цензор GigaChat",
     "manual_review": "Автор попросил ручную проверку",
+    "attachment_unverified": "Вложение не проверено автоматически", "attachment_unsafe": "Во вложении возможный риск",
 }
 PSYCH_HELP = "Если вам тяжело — психологическая служба (демо): 8-800-000-00-00, круглосуточно. В экстренной ситуации звоните 112."
 OPEN = ("NEW", "IN_PROGRESS", "NEED_INFO", "ANSWERED", "ESCALATED")
-FORM_FIELDS = ("type", "category", "link_type", "link_id", "link_label", "desired_outcome", "privacy")
+FORM_FIELDS = ("type", "category", "link_type", "link_id", "link_label", "desired_outcome", "privacy", "attachment_ids")
 DAILY_LIMIT = 5
 BUFFER_DAYS = 14
 TAKE_DAYS, ANSWER_DAYS = 2, 10
@@ -199,6 +205,9 @@ class RedButtonService:
             session_id = session_id or uuid.uuid4()
             link_label, subject_user_id, subject_type = await self._resolve_link(
                 db, user, form.get("link_type"), form.get("link_id"), form.get("link_label"))
+        if form.get("attachment_ids"):
+            async with self.database.session() as db:
+                await self._staged(db, author_ref, form["attachment_ids"])  # 422 before anything is checked
         result = stage1.check(text, desired=form.get("desired_outcome"))
         text_hmac = self.keys.text_hmac(result.normalized)
         async with self.database.session() as db:
@@ -252,7 +261,15 @@ class RedButtonService:
         status = "MODERATION" if (escalate or reason) else "NEW"
         moderation_reason = reason or (f"risk_{result.risk}" if escalate else None)
         dek, wrapped = self.keys.new_dek()
+        author_ref = self.keys.author_ref(user.id)
         async with self.database.session() as db:
+            files = await self._staged(db, author_ref, form.get("attachment_ids") or [])
+            unsafe = any(f.check_reason == "unsafe" for f in files)
+            if any(f.check_status == "unverified" for f in files) and status == "NEW":
+                # a file the machine could not vouch for: a person looks first, nothing is rejected silently
+                status, moderation_reason = "MODERATION", "attachment_unsafe" if unsafe else "attachment_unverified"
+            if unsafe:
+                escalate = True
             complaint = Complaint(
                 number=await self._number(db, now), type=form.get("type") or "unfair", category=category,
                 category_source="student" if form.get("category") else "pending", subject_type=subject_type,
@@ -268,6 +285,19 @@ class RedButtonService:
             db.add(complaint)
             await db.flush()
             complaint.body_ct = self.keys.seal(dek, text, str(complaint.id))
+            for row in files:
+                opened = attachments.open_staged(self.keys, row)
+                if opened is None:  # the day key is gone: the file cannot be read any more
+                    storage.delete(row.storage_key)
+                    await db.delete(row)
+                    continue
+                name, data = opened
+                old_key = row.storage_key
+                row.complaint_id = complaint.id
+                row.name_ct, row.storage_key = attachments.seal_for_complaint(self.keys, dek, complaint.id, row.id, name, data)
+                row.key_id, row.expires_at, row.attached_at = None, None, now
+                storage.delete(old_key)
+                del data
             if complaint.privacy in ("named", "confidential"):
                 db.add(ComplaintAuthor(complaint_id=complaint.id, user_id=user.id))
             db.add(ComplaintEvent(complaint_id=complaint.id, from_status=None, to_status=status, actor_role="system", at=now))
@@ -395,6 +425,125 @@ class RedButtonService:
         c.stage2_state = "done"
         return verdict
 
+    # ---- attachments -------------------------------------------------------------------
+
+    async def _staged(self, db, owner_ref: str, ids) -> list:
+        """Files a student uploaded for a complaint not submitted yet; all of them, or 422."""
+        wanted = list(dict.fromkeys(uuid.UUID(str(i)) for i in ids or []))
+        if len(wanted) > limits().max_files:
+            raise ApiError(422, "too_many_files", f"Не больше {limits().max_files} файлов в обращении.")
+        if not wanted:
+            return []
+        rows = (await db.scalars(select(ComplaintAttachment).where(
+            ComplaintAttachment.id.in_(wanted), ComplaintAttachment.owner_ref == owner_ref,
+            ComplaintAttachment.complaint_id.is_(None)))).all()
+        if len(rows) != len(wanted):
+            raise ApiError(422, "attachments_invalid", "Файл не найден — загрузите его снова.")
+        return list(rows)
+
+    async def _claim_for_message(self, db, c: Complaint, message, owner_ref: str, ids, now) -> list:
+        wanted = list(dict.fromkeys(uuid.UUID(str(i)) for i in ids or []))
+        if len(wanted) > limits().max_files:
+            raise ApiError(422, "too_many_files", f"Не больше {limits().max_files} файлов в сообщении.")
+        if not wanted:
+            return []
+        rows = (await db.scalars(select(ComplaintAttachment).where(
+            ComplaintAttachment.id.in_(wanted), ComplaintAttachment.complaint_id == c.id,
+            ComplaintAttachment.owner_ref == owner_ref, ComplaintAttachment.attached_at.is_(None)))).all()
+        if len(rows) != len(wanted):
+            raise ApiError(422, "attachments_invalid", "Файл не найден — загрузите его снова.")
+        for row in rows:
+            row.message_id, row.attached_at, row.expires_at = message.id, now, None
+        return list(rows)
+
+    async def upload_attachment(self, user: User, raw: bytes, filename: str | None,
+                                complaint_id: uuid.UUID | None = None) -> dict:
+        """Check (student files) and seal. Blocked files are not stored at all."""
+        try:
+            prepared = prepare(raw, filename)
+        except AttachmentError as error:
+            raise ApiError(error.status, error.code, error.message) from None
+        now = self.clock()
+        role = self.role(user)
+        is_student = user.role == "student" and user.student is not None
+        if not is_student and role is None:
+            raise not_found()
+        owner_ref = self.keys.author_ref(user.id) if is_student else str(user.id)
+        async with self.database.session() as db:
+            c = None
+            if complaint_id is not None:
+                c = await db.get(Complaint, complaint_id)
+                if c is None or not can_open_complaint_attachment(
+                        user, role=None if is_student else role, is_author=is_student and c.author_ref == owner_ref,
+                        is_assignee=c.assignee_id == user.id, conflict=c.subject_user_id == user.id):
+                    raise not_found()
+                if c.status not in ("NEW", "IN_PROGRESS", "NEED_INFO", "ESCALATED"):
+                    raise ApiError(409, "not_allowed", "Сейчас прикреплять файлы к этому обращению нельзя.")
+            elif not is_student:
+                raise not_found()
+            pending = (await db.scalars(select(ComplaintAttachment.id).where(
+                ComplaintAttachment.owner_ref == owner_ref, ComplaintAttachment.attached_at.is_(None)))).all()
+            if len(pending) >= limits().max_files * 2:
+                raise ApiError(429, "too_many_files", "Слишком много неотправленных файлов. Отправьте их или уберите лишние.")
+        if is_student:
+            result = await attachments.check(prepared, self.gigachat, mask=lambda text: self._mask(text, user))
+        else:
+            result = attachments.CheckResult("skipped")
+        if result.status == "blocked":
+            return {"id": None, "name": prepared.name, "kind": prepared.kind, "size": len(prepared.data), "url": None,
+                    "check": "blocked", "check_label": attachments.STATUS_LABELS["blocked"], "check_message": result.message}
+        attachment_id = uuid.uuid4()
+        if c is None:
+            key_id, name_ct, key = attachments.seal_staged(self.keys, attachment_id, prepared, now.astimezone(MOSCOW).date())
+        else:
+            key_id = None
+            dek = self.keys.unwrap(c.body_dek)
+            name_ct, key = attachments.seal_for_complaint(self.keys, dek, c.id, attachment_id, prepared.name, prepared.data)
+            del dek
+        row = ComplaintAttachment(id=attachment_id, complaint_id=c.id if c else None, owner_ref=owner_ref,
+                                  from_role="student" if is_student else ("curator" if role == "curator" else "staff"),
+                                  name_ct=name_ct, kind=prepared.kind, mime=prepared.mime, size=len(prepared.data),
+                                  storage_key=key, key_id=key_id, check_status=result.status, check_reason=result.reason,
+                                  created_at=now, expires_at=now + attachments.STAGED_TTL)
+        async with self.database.session() as db:
+            db.add(row)
+            await db.commit()
+        return attachments.payload(row, prepared.name, None)
+
+    async def remove_staged(self, user: User, attachment_id: uuid.UUID) -> None:
+        owner_ref = self.keys.author_ref(user.id) if user.role == "student" else str(user.id)
+        async with self.database.session() as db:
+            row = await db.get(ComplaintAttachment, attachment_id)
+            if row is None or row.owner_ref != owner_ref or row.attached_at is not None:
+                raise not_found()
+            storage.delete(row.storage_key)
+            await db.delete(row)
+            await db.commit()
+
+    async def open_attachment(self, user: User, complaint_id: uuid.UUID, attachment_id: uuid.UUID) -> tuple[str, str, bytes]:
+        """(name, mime, bytes) for the author, the assigned employee or the curator; 404 for anyone else."""
+        is_student = user.role == "student" and user.student is not None
+        async with self.database.session() as db:
+            c = await db.get(Complaint, complaint_id)
+            row = await db.get(ComplaintAttachment, attachment_id)
+            if c is None or row is None or row.complaint_id != c.id:
+                raise not_found()
+            owner_ref = self.keys.author_ref(user.id) if is_student else str(user.id)
+            allowed = can_open_complaint_attachment(
+                user, role=None if is_student else self.role(user), is_author=is_student and c.author_ref == owner_ref,
+                is_assignee=c.assignee_id == user.id, conflict=c.subject_user_id == user.id,
+                sent=row.attached_at is not None, is_uploader=row.owner_ref == owner_ref)
+            if not allowed:
+                raise not_found()
+            dek = self.keys.unwrap(c.body_dek)
+            opened = attachments.open_bound(self.keys, dek, row)
+            del dek
+            mime = row.mime
+        if opened is None:
+            raise not_found()
+        name, data = opened
+        return name, mime, data
+
     # ---- background work ---------------------------------------------------------------
 
     def ensure_worker(self) -> None:
@@ -428,6 +577,11 @@ class RedButtonService:
                 done["closed"] += 1
             result = await db.execute(delete(ModerationBuffer).where(ModerationBuffer.expires_at < now))
             done["purged"] = result.rowcount or 0
+            for row in (await db.scalars(select(ComplaintAttachment).where(
+                    ComplaintAttachment.attached_at.is_(None), ComplaintAttachment.expires_at < now))).all():
+                storage.delete(row.storage_key)
+                await db.delete(row)
+                done["purged"] += 1
             await db.commit()
         if self.gigachat is not None:
             for complaint_id in pending[:5]:
@@ -458,14 +612,30 @@ class RedButtonService:
             "escalated": c.escalated, "resolved_by_student": c.resolved_by_student,
         }
 
-    async def _details(self, db, c: Complaint) -> tuple[list[dict], list[dict]]:
+    async def _files(self, db, c: Complaint, base: str) -> tuple[list[dict], dict]:
+        """Sent files: those of the complaint itself and those of each message (names decrypted here)."""
+        rows = (await db.scalars(select(ComplaintAttachment).where(
+            ComplaintAttachment.complaint_id == c.id, ComplaintAttachment.attached_at.is_not(None))
+            .order_by(ComplaintAttachment.created_at))).all()
+        dek = self.keys.unwrap(c.body_dek) if c.body_dek and rows else None
+        own, per_message = [], {}
+        for row in rows:
+            item = attachments.payload(row, attachments.open_name(self.keys, dek, row), f"{base}/{c.id}/attachments/{row.id}")
+            (per_message.setdefault(row.message_id, []) if row.message_id else own).append(item)
+        return own, per_message
+
+    async def _details(self, db, c: Complaint, base: str = "/api/complaints") -> tuple[list[dict], list[dict]]:
+        own_files, message_files = await self._files(db, c, base)
         messages = list((await db.scalars(select(ComplaintMessage).where(ComplaintMessage.complaint_id == c.id)
                                           .order_by(ComplaintMessage.created_at))).all())
         events = list((await db.scalars(select(ComplaintEvent).where(ComplaintEvent.complaint_id == c.id)
                                         .order_by(ComplaintEvent.at))).all())
         return (
             [{"id": str(m.id), "from_role": m.from_role, "author": m.author_name if m.from_role != "student" else None,
-              "kind": m.kind, "body": self._open_message(c, m), "at": m.created_at.isoformat()} for m in messages],
+              "kind": m.kind, "body": self._open_message(c, m), "at": m.created_at.isoformat(),
+              "attachments": message_files.get(m.id, [])} for m in messages]
+            + ([{"id": f"{c.id}-files", "from_role": "student", "author": None, "kind": "files", "body": "",
+                 "at": c.created_at.isoformat(), "attachments": own_files}] if own_files else []),
             [{"to": e.to_status, "label": STATUS_LABELS[e.to_status], "at": e.at.isoformat(), "by": e.actor_role} for e in events],
         )
 
@@ -491,8 +661,10 @@ class RedButtonService:
                                           .order_by(Complaint.created_at.desc()))).all())
         return [self._base(c) | {"waiting_for_me": c.status in ("NEED_INFO", "ANSWERED")} for c in rows]
 
-    async def message(self, user: User, complaint_id: uuid.UUID, text: str) -> dict:
+    async def message(self, user: User, complaint_id: uuid.UUID, text: str, attachment_ids: list = ()) -> dict:
         text = text.strip()
+        if not text and not attachment_ids:
+            raise ApiError(422, "validation_failed", "Напишите сообщение или прикрепите файл.")
         check = stage1.check(text) if len(text) >= 3 else None
         if check is not None and check.verdict == "REJECT_OBSCENE":
             raise ApiError(422, "obscene", "Уберите ненормативную лексику из сообщения.",
@@ -506,6 +678,10 @@ class RedButtonService:
             message.id = uuid.uuid4()
             message.body_ct = self._seal_message(c, text, message.id)
             db.add(message)
+            await db.flush()
+            files = await self._claim_for_message(db, c, message, self.keys.author_ref(user.id), attachment_ids, now)
+            if any(f.check_status == "unverified" for f in files):
+                c.flags = sorted(set(c.flags) | {"attachment_unverified"})
             if c.status == "NEED_INFO":
                 if c.paused_at:  # SLA hours stand still while the deanery waits for the student
                     c.answer_due_at += now - c.paused_at
@@ -614,7 +790,7 @@ class RedButtonService:
     async def staff_view(self, user: User, complaint_id: uuid.UUID) -> dict:
         async with self.database.session() as db:
             c, role = await self._staff_complaint(db, user, complaint_id)
-            messages, events = await self._details(db, c)
+            messages, events = await self._details(db, c, "/api/staff/complaints")
             author = await self._author_label(db, c, role)
             moderation = list((await db.scalars(select(ModerationEvent).where(ModerationEvent.complaint_id == c.id)
                                                 .order_by(ModerationEvent.at))).all())
@@ -646,7 +822,7 @@ class RedButtonService:
         })
         return data
 
-    async def act(self, user: User, complaint_id: uuid.UUID, action: str, text: str | None) -> dict:
+    async def act(self, user: User, complaint_id: uuid.UUID, action: str, text: str | None, attachment_ids: list = ()) -> dict:
         text = (text or "").strip()
         now = self.clock()
         async with self.database.session() as db:
@@ -679,7 +855,9 @@ class RedButtonService:
                     self._event(db, c, "ANSWERED", role)
                     title = "есть ответ"
             elif action == "message" and c.status in ("NEW", "IN_PROGRESS", "NEED_INFO", "ESCALATED"):
-                self._add_message(db, c, role, user, text, "message", now)
+                message = self._add_message(db, c, role, user, text, "message", now)
+                await db.flush()
+                await self._claim_for_message(db, c, message, str(user.id), attachment_ids, now)
                 title = "новое сообщение"
             else:
                 raise ApiError(409, "invalid_transition", f"Из статуса «{STATUS_LABELS[c.status]}» так нельзя.")
@@ -696,6 +874,7 @@ class RedButtonService:
         message.body_ct = self._seal_message(c, text, message.id)
         db.add(message)
         c.updated_at = now
+        return message
 
     async def assign(self, user: User, complaint_id: uuid.UUID, assignee_id: uuid.UUID) -> dict:
         async with self.database.session() as db:

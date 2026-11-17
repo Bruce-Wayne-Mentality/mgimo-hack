@@ -136,9 +136,45 @@ class GigaChat:
         return result
 
     async def chat_json(self, system: str, user: str, schema: dict, *, name: str = "verdict",
-                        temperature: float = 0.1, max_tokens: int = 600) -> ChatResult:
+                        temperature: float = 0.1, max_tokens: int = 600, model: str | None = None,
+                        attachments: list[str] | None = None) -> ChatResult:
         """One structured-output call. Falls back to a forced function call if json_schema is refused."""
-        return await self._guarded(lambda: self._call(system, user, schema, name, temperature, max_tokens))
+        return await self._guarded(lambda: self._call(system, user, schema, name, temperature, max_tokens, model, attachments))
+
+    async def upload_file(self, data: bytes, mime: str, filename: str = "attachment") -> str:
+        """POST /files (purpose=general) → file id for `attachments`. The student's file name is never sent."""
+        return await self._guarded(lambda: self._upload(data, mime, filename))
+
+    async def _upload(self, data: bytes, mime: str, filename: str) -> str:
+        async with self._client() as client:
+            for attempt in (1, 2):
+                try:
+                    token = await self._access_token(client)
+                    response = await client.post(f"{self.api_url}/files", files={"file": (filename, data, mime)},
+                                                 data={"purpose": "general"}, headers={
+                                                     "Authorization": f"Bearer {token}", "Accept": "application/json",
+                                                     "User-Agent": USER_AGENT})
+                except (httpx.TimeoutException, httpx.TransportError) as error:
+                    if attempt == 2:
+                        raise GigaChatUnavailable(type(error).__name__) from None
+                    continue
+                if response.status_code == 401 and attempt == 1:
+                    self._token = None
+                    continue
+                if response.status_code != 200:
+                    raise GigaChatUnavailable(str(response.status_code))
+                try:
+                    return str(response.json()["id"])
+                except (KeyError, ValueError):
+                    raise GigaChatInvalid("bad upload payload") from None
+        raise GigaChatUnavailable("no answer")
+
+    async def delete_file(self, file_id: str) -> None:
+        """POST /files/{id}/delete — nothing of the student's stays in GigaChat storage after the check."""
+        async with self._client() as client:
+            token = await self._access_token(client)
+            await client.post(f"{self.api_url}/files/{file_id}/delete", headers={
+                "Authorization": f"Bearer {token}", "Accept": "application/json", "User-Agent": USER_AGENT})
 
     async def embed(self, texts: list[str], model: str | None = None) -> list[list[float]]:
         """Vectors for texts in the original order (RAG knowledge base and search queries).
@@ -189,9 +225,11 @@ class GigaChat:
                 return vectors
         raise GigaChatUnavailable("no answer")
 
-    async def _call(self, system, user, schema, name, temperature, max_tokens) -> ChatResult:
+    async def _call(self, system, user, schema, name, temperature, max_tokens, model=None, attachments=None) -> ChatResult:
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-        body = {"model": self.model, "temperature": temperature, "max_tokens": max_tokens, "messages": messages,
+        if attachments:  # ids from upload_file; one image per message (documentation)
+            messages[1]["attachments"] = list(attachments)
+        body = {"model": model or self.model, "temperature": temperature, "max_tokens": max_tokens, "messages": messages,
                 "response_format": {"type": "json_schema", "schema": schema, "strict": True}}
         started = time.perf_counter()
         async with self._client() as client:
@@ -235,7 +273,7 @@ class GigaChat:
                 except (TypeError, ValueError):
                     raise GigaChatInvalid("not json") from None
                 return ChatResult(data=data, latency_ms=int((time.perf_counter() - started) * 1000),
-                                  tokens=int(payload.get("usage", {}).get("total_tokens", 0)), model=self.model)
+                                  tokens=int(payload.get("usage", {}).get("total_tokens", 0)), model=model or self.model)
         raise GigaChatUnavailable("no answer")
 
     async def rephrase(self, question: str, grounded: str) -> str | None:

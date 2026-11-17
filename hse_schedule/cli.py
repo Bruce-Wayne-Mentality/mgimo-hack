@@ -14,6 +14,8 @@ from .errors import ConfigurationError, ScheduleError
 from .parser import parse_lessons
 
 WEB_DIST = Path("apps/web/dist")
+DEMO_WEEK = Path("examples/demo-week.json")
+DEMO_STUDENTS = Path("examples/demo-students.json")
 
 
 def _database_url(args) -> str | None:
@@ -47,20 +49,93 @@ def _run(coroutine):
     return asyncio.run(coroutine)
 
 
-async def _seed(url: str) -> dict:
+async def _seed_database(database) -> dict:
+    from .academics.seed import seed_academics
     from .accounts.seed import seed_demo
-    from .db import Database
-
+    from .announcements import seed_announcements
+    from .booking import seed_booking
+    from .redbutton.seed import seed_redbutton
     from .student_requests.seed import seed_demo_requests, seed_request_types
+
+    created = await seed_demo(database)
+    created["request_types"] = await seed_request_types(database)
+    created["academics"] = await seed_academics(database)
+    created["requests"] = await seed_demo_requests(database)
+    created["announcements"] = await seed_announcements(database)
+    created["complaints"] = await seed_redbutton(database)
+    created["resources"] = await seed_booking(database)
+    if DEMO_WEEK.is_file() and DEMO_STUDENTS.is_file():
+        from .schedule_changes import seed_schedule_changes
+
+        created["schedule_changes"] = await seed_schedule_changes(database, _service(DEMO_STUDENTS, DEMO_WEEK, demo=True))
+    return created
+
+
+async def _seed(url: str) -> dict:
+    from .db import Database
 
     database = Database(url, pooled=False)
     try:
-        created = await seed_demo(database)
-        created["request_types"] = await seed_request_types(database)
-        created["requests"] = await seed_demo_requests(database)
-        return created
+        return await _seed_database(database)
     finally:
         await database.dispose()
+
+
+def _modules(database, store, secret: bytes, schedule, request_service, *, demo: bool = False, overlay=None) -> tuple:
+    """Route registrations of the feature modules sharing one database and notification store."""
+    from datetime import datetime, timezone
+
+    from .academics.router import register_academic_routes
+    from .academics.service import AcademicService
+    from .announcements import AnnouncementService, register_announcement_routes
+    from .assistant.router import register_assistant_routes
+    from .booking import BookingService, register_booking_routes
+    from .calendar_feed import CalendarService, register_calendar_routes
+    from .gigachat import GigaChat
+    from .redbutton.crypto import KeyStore
+    from .redbutton.router import register_redbutton_routes
+    from .redbutton.service import RedButtonService
+    from .admin import register_admin_routes
+    from .documents.router import register_document_routes
+    from .documents.service import DocumentService
+    from .schedule_changes import Overlay, ScheduleChangeService, register_schedule_change_routes
+    from .student_id import StudentIdService, register_student_id_routes
+
+    def notify(email: str, drafts: list[dict]) -> None:
+        store.publish_notifications(email, drafts, datetime.now(timezone.utc))
+
+    base_url = os.environ.get("PUBLIC_BASE_URL") or None
+    academics = AcademicService(database, notify=notify)
+    documents = DocumentService(database, secret, base_url=base_url)
+    student_id = StudentIdService(database, secret, base_url=base_url)
+    announcements = AnnouncementService(database, notify=notify)
+    booking = BookingService(database, schedule, notify=notify)
+    calendar = CalendarService(database, schedule, extra_sources=(booking.calendar_events,))
+    gigachat = GigaChat.from_env()
+    redbutton = RedButtonService(database, keys=KeyStore(), gigachat=gigachat, notify=notify)
+    overlay = overlay or Overlay()
+    changes = ScheduleChangeService(database, schedule, overlay)
+
+    async def reload_overlay() -> None:
+        from sqlalchemy import select
+
+        from .schedule_changes import LessonChange
+
+        async with database.session() as db:
+            overlay.replace_all(list((await db.scalars(select(LessonChange))).all()))
+
+    return (
+        lambda app: register_academic_routes(app, academics),
+        lambda app: register_document_routes(app, documents),
+        lambda app: register_student_id_routes(app, student_id),
+        lambda app: register_announcement_routes(app, announcements),
+        lambda app: register_calendar_routes(app, calendar),
+        lambda app: register_redbutton_routes(app, redbutton),
+        lambda app: register_booking_routes(app, booking),
+        lambda app: register_assistant_routes(app, academics, request_service, schedule),
+        lambda app: register_schedule_change_routes(app, changes),
+        lambda app: register_admin_routes(app, database, store, demo=demo, reseed=_seed_database, on_reset=reload_overlay),
+    )
 
 
 def _dates(parser: argparse.ArgumentParser) -> None:
@@ -114,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
     db_upgrade = commands.add_parser("db-upgrade", help="Применить миграции БД (DATABASE_URL)")
     db_upgrade.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
 
+    reset = commands.add_parser("reset-demo", help="Стереть и заново создать демо-данные (для ночного сброса)")
+    reset.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
+    reset.add_argument("--state-dir", type=Path, default=Path(".local-state"), help="Каталог состояния сервера")
+
     seed = commands.add_parser("seed-demo", help="Создать вымышленные факультеты, группы и тестовые аккаунты")
     seed.add_argument("--database-url", help="По умолчанию переменная DATABASE_URL")
 
@@ -122,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument("--database-url", help="По умолчанию DATABASE_URL; в --demo без него используется SQLite")
     serve.add_argument("--web-dist", type=Path, help="Собранный фронтенд (по умолчанию apps/web/dist, если есть)")
     serve.add_argument("--insecure-cookies", action="store_true", help="Кука без Secure — только для разработки по HTTP")
-    serve.add_argument("--students", type=Path, default=Path("examples/students.json"))
+    serve.add_argument("--students", type=Path, help="Справочник студентов (в --demo — examples/demo-students.json)")
     serve.add_argument("--fixture", type=Path)
     serve.add_argument("--tokens-file", type=Path, help="Закрытый JSON-объект token → email")
     serve.add_argument("--host", default="127.0.0.1")
@@ -143,6 +222,29 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "parse":
             lessons = parse_lessons(json.loads(args.input.read_text(encoding="utf-8")))
             _output([lesson.to_dict() for lesson in lessons], args.output)
+        elif args.command == "reset-demo":
+            url = _database_url(args)
+            if not url:
+                raise ConfigurationError("Задайте DATABASE_URL или --database-url.")
+            from .admin import reset_demo_data
+            from .db import Database
+            from .migrate import upgrade
+            from .notification_store import NotificationStore
+
+            upgrade(url)
+            store = NotificationStore(args.state_dir / "demo" / "notifications.sqlite3")
+            os.environ.setdefault("REDBUTTON_KEY_DIR", str((args.state_dir / "demo" / "keys").resolve()))
+
+            async def run() -> dict:
+                database = Database(url, pooled=False)
+                try:
+                    return await reset_demo_data(database, store, _seed_database, by="nightly")
+                finally:
+                    await database.dispose()
+
+            created = _run(run())
+            store.close()
+            print(f"Демо-данные сброшены: {created}")
         elif args.command in ("db-upgrade", "seed-demo"):
             url = _database_url(args)
             if not url:
@@ -166,13 +268,17 @@ def main(argv: list[str] | None = None) -> int:
             if args.demo and (args.fixture or args.tokens_file):
                 raise ConfigurationError("Для --demo не задавайте --fixture и --tokens-file.")
             state_dir = args.state_dir / ("demo" if args.demo else "live")
+            # Red-button keys live next to the server state, outside the database and its backups.
+            os.environ.setdefault("REDBUTTON_KEY_DIR", str((state_dir / "keys").resolve()))
             database_url = _database_url(args)
             if args.demo and not database_url:
                 state_dir.mkdir(parents=True, exist_ok=True)
                 database_url = f"sqlite:///{(state_dir / 'app.sqlite3').resolve().as_posix()}"
             tokens = {}
+            students = args.students
             if args.demo:
-                fixture = Path("examples/lessons.json")
+                fixture = DEMO_WEEK
+                students = students or DEMO_STUDENTS
             else:
                 fixture = args.fixture
                 if args.tokens_file is None and not database_url:
@@ -181,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
                     tokens = json.loads(args.tokens_file.read_text(encoding="utf-8"))
                     if not isinstance(tokens, dict) or not tokens:
                         raise ConfigurationError("Файл токенов должен содержать непустой объект token → email.")
-            service = _service(args.students, fixture, demo=args.demo)
+            service = _service(students or Path("examples/students.json"), fixture, demo=args.demo)
             from .notification_store import NotificationStore
             from .push import WebPushSender
             from .telegram import TelegramBot
@@ -194,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
             bot = TelegramBot(bot_token, username=os.environ.get("TELEGRAM_BOT_USERNAME")) if bot_token else None
             auth = auth_settings = None
             request_service = None
+            modules = ()
             demo_accounts = ()
             if database_url:
                 from .accounts.router import AuthSettings
@@ -217,11 +324,21 @@ def main(argv: list[str] | None = None) -> int:
                     database,
                     notify=lambda email, drafts: store.publish_notifications(email, drafts, datetime.now(timezone.utc)),
                 )
+                secret = _session_secret(state_dir, args.demo)
+                from .schedule_changes import Overlay
+
+                overlay = Overlay()
+                overlay.load(database_url)
+                service.overlay = overlay
+                modules = _modules(database, store, secret, service, request_service, demo=args.demo, overlay=overlay)
                 auth_settings = AuthSettings(
-                    secret=_session_secret(state_dir, args.demo),
+                    secret=secret,
                     cookie_secure=not args.insecure_cookies,
                     demo=args.demo,
                 )
+            if args.insecure_cookies and args.host not in ("127.0.0.1", "localhost", "::1"):
+                # Without Secure the session cookie would travel over plain HTTP: only for local development.
+                raise ConfigurationError("--insecure-cookies разрешён только при --host 127.0.0.1 или localhost.")
             web_dist = args.web_dist or (WEB_DIST if (WEB_DIST / "index.html").is_file() else None)
             if web_dist is not None and auth is None:
                 raise ConfigurationError("Личный кабинет требует входа по логину: задайте DATABASE_URL.")
@@ -230,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
                 push_sender=push, telegram_bot=bot, run_workers=True,
                 refresh_interval=args.refresh_interval, auth=auth, auth_settings=auth_settings,
                 demo_accounts=demo_accounts, web_dist=web_dist, request_service=request_service,
+                modules=modules,
             )
             uvicorn.run(app, host=args.host, port=args.port)
         return 0

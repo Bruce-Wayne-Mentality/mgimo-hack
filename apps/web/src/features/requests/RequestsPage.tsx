@@ -1,6 +1,8 @@
 import { ChevronRight, Plus } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router";
+import { ComplaintsList } from "../complaints/ComplaintPages";
+import { useMyComplaints } from "../complaints/api";
 import { Card, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { OPEN, dateLabel, useMyRequests, type RequestSummary } from "./api";
@@ -62,6 +64,34 @@ export function RequestRow({ item }: { item: RequestSummary }) {
 }
 
 export function RequestsPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "complaints" ? "complaints" : "requests";
+  const complaints = useMyComplaints();
+  const waitingComplaints = (complaints.data ?? []).filter((item) => item.waiting_for_me).length;
+  const tabs = (
+    <div role="tablist" aria-label="Разделы" className="flex gap-1.5">
+      {[{ key: "requests", label: "Заявки" }, { key: "complaints", label: "Обращения" }].map((option) => (
+        <button key={option.key} role="tab" aria-selected={tab === option.key} onClick={() => setParams(option.key === "requests" ? {} : { tab: option.key }, { replace: true })}
+          className={cn("soft relative min-h-10 rounded-[10px] px-4 text-sm", tab === option.key ? "bg-primary text-on-primary" : "bg-surface text-text-2 shadow-k-card hover:bg-primary-soft")}>
+          {option.label}
+          {option.key === "complaints" && waitingComplaints > 0 && <span className="ml-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full bg-[#e5484d] px-1 text-[11px] text-white">{waitingComplaints}</span>}
+        </button>
+      ))}
+    </div>
+  );
+  if (tab === "complaints") {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader eyebrow="Справки, обращения и жалобы в деканат" title="Заявки" />
+        {tabs}
+        <ComplaintsList />
+      </div>
+    );
+  }
+  return <RequestsTab tabs={tabs} />;
+}
+
+function RequestsTab({ tabs }: { tabs: ReactNode }) {
   const requests = useMyRequests();
   const [filter, setFilter] = useState<Filter>("all");
   const items = (requests.data ?? []).filter((item) => matches(item, filter));
@@ -75,6 +105,7 @@ export function RequestsPage() {
         </div>
       </PageHeader>
 
+      {tabs}
       {needAnswer > 0 && (
         <div role="status" className="rounded-[var(--radius-card)] bg-[#fff4dc] px-5 py-4 text-[15px] text-[#6b4600]">
           {needAnswer === 1 ? "По одной заявке нужен ваш ответ." : `По ${needAnswer} заявкам нужен ваш ответ.`}

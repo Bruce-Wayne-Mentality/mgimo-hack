@@ -5,6 +5,7 @@ import { Alert, Button, Card, CardTitle, ErrorState, PageHeader, Skeleton } from
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { OPEN, dateLabel, dateTimeLabel, useRequest, useRequestAction, type RequestDetail } from "./api";
+import { DocumentCard } from "../documents/DocumentCard";
 import { StatusChip, Tracker } from "./parts";
 
 export function Conversation({ request, onSend, sending, error, canWrite, staff = false }: {
@@ -137,13 +138,13 @@ export function RequestDetailPage() {
           <div>
             <p className="m-0 font-medium">Готово</p>
             {data.result_note && <p className="m-0 mt-1 text-[15px]">{data.result_note}</p>}
-            <p className="m-0 mt-1 text-[13px] opacity-80">PDF с QR-кодом проверки появится здесь в следующем обновлении.</p>
+            <a href="#doc-heading" className="mt-2 inline-block text-[15px] font-medium underline">Скачать PDF с QR-кодом</a>
           </div>
         </div>
       )}
       {data.status === "rejected" && lastNote && <Alert>Причина отказа: {lastNote}</Alert>}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <Card aria-labelledby="track-heading">
           <CardTitle id="track-heading">Ход заявки</CardTitle>
           <Tracker request={data} />
@@ -153,6 +154,10 @@ export function RequestDetailPage() {
                 ? `Заявка рассматривается дольше обычного (ориентир был ${dateTimeLabel(data.due_at)}). Деканат видит её в приоритете.`
                 : `Обычно готово до ${dateTimeLabel(data.due_at)} — это ориентир по сроку типа заявки, не точное обещание.`}
             </p>
+          )}
+          {open && new Date(data.due_at).getTime() < Date.now() && (
+            <Link to={`/complaints/new?category=documents&link_type=request&link_id=${data.id}&link_label=${encodeURIComponent(`${data.number} · ${data.type.title}`)}`}
+              className="mt-2 inline-block text-sm font-medium text-danger hover:underline">Пожаловаться на сроки</Link>
           )}
           {data.can_cancel && (
             <div className="mt-4">
@@ -172,6 +177,7 @@ export function RequestDetailPage() {
           )}
         </Card>
         <div className="flex flex-col gap-4">
+          {data.status === "ready" && <DocumentCard requestId={data.id} />}
           <RequestFacts request={data} />
           <Conversation
             request={data}

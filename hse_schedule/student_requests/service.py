@@ -35,6 +35,7 @@ STATUS_LABELS = {
 }
 OPEN_STATUSES = ("submitted", "in_review", "needs_info")
 CLOSED_STATUSES = ("ready", "rejected", "cancelled")
+STAFF_CLOCK_STATUSES = ("submitted", "in_review")
 
 # (from, to) -> who may do it and whether a note is required (section 4.4).
 TRANSITIONS: dict[tuple[str, str], dict] = {
@@ -224,7 +225,8 @@ class RequestService:
             if type_code:
                 query = query.where(RequestType.code == type_code)
             if overdue:
-                query = query.where(StudentRequest.status.in_(OPEN_STATUSES), StudentRequest.due_at < now)
+                # While the deanery waits for the student, the SLA clock is not the deanery's.
+                query = query.where(StudentRequest.status.in_(STAFF_CLOCK_STATUSES), StudentRequest.due_at < now)
             rows = await db.scalars(query.limit(200))
             return list(rows.unique().all())
 

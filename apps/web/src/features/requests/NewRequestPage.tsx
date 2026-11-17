@@ -21,6 +21,18 @@ function loadDraft(): Draft {
   }
 }
 
+/** Prefill from a link (?type=RETAKE&discipline=…) — the traffic light and the assistant open drafts this way. */
+function draftFromQuery(): Draft | null {
+  const params = new URLSearchParams(window.location.search);
+  const type = params.get("type");
+  if (!type || !/^[A-Z_]{2,32}$/.test(type)) return null;
+  const values: Record<string, string> = {};
+  params.forEach((value, name) => {
+    if (name !== "type" && /^[a-z_]{1,32}$/.test(name)) values[name] = value.slice(0, 1000);
+  });
+  return { type, values, step: 2, key: null };
+}
+
 function saveDraft(draft: Draft | null) {
   try {
     if (draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -135,7 +147,7 @@ export function NewRequestPage() {
   const types = useRequestTypes();
   const profile = useQuery({ queryKey: ["profile"], queryFn: () => api<StudentProfile>("/api/me/profile") });
   const navigate = useNavigate();
-  const [draft, setDraft] = useState<Draft>(loadDraft);
+  const [draft, setDraft] = useState<Draft>(() => draftFromQuery() ?? loadDraft());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -226,7 +238,7 @@ export function NewRequestPage() {
       )}
 
       {selected && draft.step === 2 && (
-        <form noValidate onSubmit={toReview} className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <form noValidate onSubmit={toReview} className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           <Card>
             <CardTitle>{selected.title}</CardTitle>
             <div className="flex flex-col gap-4">

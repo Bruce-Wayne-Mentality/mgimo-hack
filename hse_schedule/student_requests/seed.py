@@ -93,11 +93,32 @@ async def seed_demo_requests(database: Database, *, now: datetime | None = None)
              {"organization": "ООО «Демо-Аналитика»", "period_from": (now + timedelta(days=20)).date().isoformat(),
               "period_to": (now + timedelta(days=50)).date().isoformat()},
              now - timedelta(days=1), [("in_review", timedelta(hours=3), None, True)])
-        make("student.boris", "CERT_MIL", {"purpose": "deferment", "office": "Военкомат Демо-района"}, now - timedelta(days=2),
+        make("student.boris", "CERT_MIL", {"purpose": "deferment", "office": "Военкомат Демо-района"}, now - timedelta(days=3),
              [("in_review", timedelta(hours=2), None, True),
               ("needs_info", timedelta(hours=5), "Уточните полный адрес военкомата и номер приписного свидетельства.", True)],
              comments=[(True, "Уточните полный адрес военкомата и номер приписного свидетельства.", timedelta(hours=5))])
-        make("student.boris", "RETAKE", {"discipline": "Эконометрика", "reason": "Болел в день экзамена, есть справка."},
+        make("student.boris", "RETAKE", {"discipline": "Корпоративные финансы",
+                                          "reason": "Пропустил контрольную работу 2 по болезни, справка из поликлиники есть."},
              now - timedelta(days=6), [])
+        count = 4
+        # Classmates' requests fill the staff queue with every status (section 13.2).
+        background = [
+            ("bg.2510.02", "CERT_INTERN", {"organization": "АО «Вымышленный банк»", "period_from": (now + timedelta(days=10)).date().isoformat(),
+                                           "period_to": (now + timedelta(days=40)).date().isoformat()}, now - timedelta(hours=5), []),
+            ("bg.2510.05", "ACAD_LEAVE", {"basis": "medical", "period_from": (now + timedelta(days=14)).date().isoformat(), "months": 6},
+             now - timedelta(days=2), [("in_review", timedelta(hours=4), None, True)]),
+            ("bg.2410.03", "TRANSFER", {"target": "ЭК-24-2, профиль «Финансы»", "reason": "Хочу сменить профиль подготовки."},
+             now - timedelta(days=9), []),
+            ("bg.2410.07", "CERT_MIL", {"purpose": "registration", "office": "Военкомат Вымышленного района"}, now - timedelta(days=4),
+             [("in_review", timedelta(hours=1), None, True),
+              ("ready", timedelta(days=1), "Справка готова, подписана деканом (демо).", True)]),
+            ("bg.2510.09", "RETAKE", {"discipline": "Эконометрика", "reason": "Хочу улучшить оценку."}, now - timedelta(days=5),
+             [("in_review", timedelta(hours=2), None, True),
+              ("rejected", timedelta(days=1), "Пересдача для повышения оценки в этом семестре не предусмотрена регламентом (демо).", True)]),
+        ]
+        for login, code, payload, created, steps in background:
+            if login in students and code in types:
+                make(login, code, payload, created, steps)
+                count += 1
         await db.commit()
-        return 4
+        return count

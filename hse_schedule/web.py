@@ -15,10 +15,10 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 
 LOGIN_PATH = "/login"
-# Screens that must open without an account (section 6: login, document check,
-# shared profile). The last two arrive with K2/K10.
-PUBLIC_PREFIXES = ("/verify/", "/s/")
-NOT_PAGES = ("/api/", "/docs", "/redoc", "/openapi.json", "/health", "/assets/")
+# Screens that must open without an account (section 6): document check (K2),
+# student card check (K3), anonymous complaint tracking (K7), «О проекте».
+PUBLIC_PREFIXES = ("/verify/", "/id/", "/track", "/about", "/s/")
+NOT_PAGES = ("/api/", "/docs", "/redoc", "/openapi.json", "/health", "/assets/", "/cal/")
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
@@ -30,7 +30,7 @@ SECURITY_HEADERS = {
     ),
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
     "X-Frame-Options": "DENY",
 }
 # Swagger UI loads its bundle from a CDN and uses inline code.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from collections.abc import Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import date
@@ -15,6 +16,25 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .errors import ConfigurationError, InvalidPayload, SourceUnavailable, UnknownStudent
 from .service import ScheduleService
 from .validation import validate_date_range
+
+
+PRIVATE_LOG_PREFIXES = ("/api/complaints", "/api/staff/complaints", "/api/staff/moderation")
+
+
+class _NoAddressForComplaints(logging.Filter):
+    """Spec «Красная кнопка», §6: no IP address in logs for the complaints routes."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str) and args[2].startswith(PRIVATE_LOG_PREFIXES):
+            record.args = ("-", *args[1:2], args[2].split("?", 1)[0], *args[3:])
+        return True
+
+
+def install_access_log_filter() -> None:
+    logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _NoAddressForComplaints) for f in logger.filters):
+        logger.addFilter(_NoAddressForComplaints())
 
 
 def create_app(
@@ -32,6 +52,7 @@ def create_app(
     demo_accounts: Sequence[Mapping[str, str]] = (),
     web_dist: Path | None = None,
     request_service=None,
+    modules: Sequence = (),
 ) -> FastAPI:
     """Create the API.
 
@@ -53,6 +74,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app):
+        install_access_log_filter()
         runtime = None
         if notification_store is not None and run_workers:
             from .notification_runtime import NotificationDispatcher, NotificationRuntime
@@ -121,6 +143,26 @@ def create_app(
     # An existing site's trusted identity resolver can override this dependency.
     app.state.account_dependency = authenticated_email
 
+    from .ratelimit import RateLimiter
+
+    # A coarse per-address ceiling for the whole API on top of the per-feature
+    # limits (login throttle, public checks): a stuck script or a flood gets 429.
+    read_limit = RateLimiter(limit=600, window=60)
+    write_limit = RateLimiter(limit=120, window=60)
+
+    @app.middleware("http")
+    async def api_rate_limit(request: Request, call_next):
+        if request.url.path.startswith("/api/"):
+            client = request.client.host if request.client else "unknown"
+            limiter = read_limit if request.method in ("GET", "HEAD", "OPTIONS") else write_limit
+            wait = limiter.hit(f"api|{client}")
+            if wait is not None:
+                return JSONResponse(
+                    {"error": {"code": "rate_limited", "message": "Слишком много запросов. Подождите немного."}},
+                    status_code=429, headers={"Retry-After": str(int(wait) + 1)},
+                )
+        return await call_next(request)
+
     @app.middleware("http")
     async def private_responses(request: Request, call_next):
         response = await call_next(request)
@@ -157,8 +199,19 @@ def create_app(
         )
 
     @app.get("/health")
-    def health() -> dict:
-        return {"status": "ok", "demo": demo}
+    async def health() -> JSONResponse:
+        database = getattr(app.state, "database", None)
+        status = {"status": "ok", "demo": demo}
+        if database is not None:
+            from sqlalchemy import text
+
+            try:
+                async with database.session() as db:
+                    await db.execute(text("SELECT 1"))
+                status["database"] = "ok"
+            except Exception:
+                return JSONResponse({"status": "degraded", "database": "unavailable", "demo": demo}, status_code=503)
+        return JSONResponse(status)
 
     @app.get("/api/me")
     def current_student(email: str = Depends(authenticated_email)) -> dict:
@@ -198,6 +251,12 @@ def create_app(
         from .student_requests.router import register_request_routes
 
         register_request_routes(app, request_service)
+
+    # Feature modules (study, documents, assistant, ...) register their routes
+    # once the session dependency exists and before the SPA catch-all.
+    if require_session is not None:
+        for register in modules:
+            register(app)
 
     if web_dist is not None:
         from .web import register_web

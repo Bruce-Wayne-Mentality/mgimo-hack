@@ -11,6 +11,18 @@ class Group:
 
 
 @dataclass(frozen=True, slots=True)
+class LessonChange:
+    """A deanery edit on top of the source timetable (FR-STF-5): «было → стало»."""
+
+    kind: str  # moved | cancelled | room
+    note: str | None = None
+    was_starts_at: str | None = None
+    was_ends_at: str | None = None
+    was_room: str | None = None
+    change_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Lesson:
     id: str
     date: date
@@ -25,6 +37,7 @@ class Lesson:
     building: str | None
     links: tuple[str, ...]
     source_lesson_id: str | None
+    change: LessonChange | None = None
 
     def to_dict(self) -> dict:
         result = asdict(self)

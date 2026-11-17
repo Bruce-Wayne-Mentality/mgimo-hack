@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -87,7 +89,8 @@ class AuthService:
                     raise LoginLocked(retry)
 
             user = await db.scalar(select(User).where(func.lower(User.login) == login))
-            valid = security.verify_password(user.password_hash if user else None, password)
+            # argon2 is deliberately slow: run it off the event loop so one login does not stall everyone.
+            valid = await asyncio.to_thread(security.verify_password, user.password_hash if user else None, password)
             if not valid or user is None or not user.is_active:
                 pair_locked = await self._register_failure(db, pair_key, PAIR_LIMIT, now)
                 ip_locked = await self._register_failure(db, ip_key, IP_LIMIT, now)
@@ -102,7 +105,7 @@ class AuthService:
                 raise AuthError()
 
             if security.needs_rehash(user.password_hash):
-                user.password_hash = security.hash_password(password)
+                user.password_hash = await asyncio.to_thread(security.hash_password, password)
             await db.execute(delete(LoginThrottle).where(LoginThrottle.key_hash == pair_key))
             await db.execute(delete(UserSession).where(UserSession.expires_at <= now))
             token = security.new_session_token()
@@ -199,11 +202,11 @@ class AuthService:
         now = self.clock()
         async with self.database.session() as db:
             user = await db.get(User, current.user.id)
-            if user is None or not security.verify_password(user.password_hash, old_password):
+            if user is None or not await asyncio.to_thread(security.verify_password, user.password_hash, old_password):
                 raise PasswordRejected("current_password", "Текущий пароль указан неверно.")
-            if security.verify_password(user.password_hash, new_password):
+            if await asyncio.to_thread(security.verify_password, user.password_hash, new_password):
                 raise PasswordRejected("new_password", "Новый пароль совпадает с текущим.")
-            user.password_hash = security.hash_password(new_password)
+            user.password_hash = await asyncio.to_thread(security.hash_password, new_password)
             user.password_changed_at = now
             # FR-AUTH-4: a password change ends every other session.
             await db.execute(

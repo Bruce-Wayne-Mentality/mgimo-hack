@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { dateLabel, dateTimeLabel, useRequest, useRequestAction, useStaffQueue, type RequestDetail, type RequestStatus } from "../requests/api";
 import { Conversation, RequestFacts } from "../requests/RequestDetailPage";
+import { DocumentCard } from "../documents/DocumentCard";
 import { StatusChip, Tracker } from "../requests/parts";
 
 const FILTERS: { key: string; label: string; status?: string; overdue?: boolean }[] = [
@@ -127,7 +128,7 @@ export function StaffRequestPage() {
         </section>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <div className="flex flex-col gap-4">
           {!!data.actions?.length && (
             <Card aria-labelledby="actions-heading">
@@ -176,6 +177,7 @@ export function StaffRequestPage() {
           </Card>
         </div>
         <div className="flex flex-col gap-4">
+          {data.status === "ready" && <DocumentCard requestId={data.id} staff />}
           <RequestFacts request={data} />
           <Conversation
             request={data}

@@ -110,7 +110,7 @@ class Database:
 
     async def create_all(self) -> None:
         """Test helper; production schema comes from Alembic migrations."""
-        from . import accounts, student_requests  # noqa: F401  (registers models)
+        from . import academics, accounts, announcements, booking, calendar_feed, documents, redbutton, schedule_changes, student_requests  # noqa: F401  (registers models)
 
         async with self.engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)

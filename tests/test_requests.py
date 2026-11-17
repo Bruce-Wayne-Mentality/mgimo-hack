@@ -91,10 +91,10 @@ class RequestTestCase(unittest.TestCase):
 
 
 class CatalogTests(RequestTestCase):
-    def test_catalogue_has_eight_types_with_forms(self):
+    def test_catalogue_has_nine_types_with_forms(self):
         items = self.client().get("/api/request-types").json()["items"]
         self.assertEqual([item["code"] for item in items],
-                         ["CERT_STUDY", "TRANSCRIPT", "CERT_INTERN", "CERT_MIL", "RETAKE", "TRANSFER", "ACAD_LEAVE", "AID"])
+                         ["CERT_STUDY", "TRANSCRIPT", "CERT_INTERN", "CERT_MIL", "RETAKE", "TRANSFER", "ACAD_LEAVE", "AID", "QUESTION"])
         self.assertTrue(all(item["fields"] for item in items))
         self.assertEqual(self.client().get("/api/request-types").status_code, 200)
         anonymous = TestClient(self.app, base_url="https://testserver")

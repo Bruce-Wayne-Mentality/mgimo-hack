@@ -1,12 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { BellRing, CalendarDays, CheckCircle2, ClipboardList, type LucideIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertOctagon, BellRing, Bot, CalendarDays, CheckCircle2, ClipboardList, IdCard, LifeBuoy, Megaphone, Pin, Sparkles, X, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
 import { Card, CardTitle, EmptyState, ErrorState, IconChip, MoreLink, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import type { NotificationPage } from "@/lib/types";
-import { OPEN, useMyRequests } from "../requests/api";
+import { useMyComplaints } from "../complaints/api";
+import { OPEN, dateTimeLabel, useMyRequests } from "../requests/api";
 import { dayLabel, LessonCard, moscowDate, timeLabel, useSchedule } from "../schedule/lessons";
+import { StaffHome } from "../staff/StaffPages";
+import { useNudges, useStudy } from "../study/api";
+import { LEVEL_STYLE, LevelBadge } from "../study/parts";
 
 function plural(count: number, one: string, few: string, many: string): string {
   const mod10 = count % 10;
@@ -43,6 +47,136 @@ function useLatest() {
   });
 }
 
+type Announcement = { id: string; title: string; body: string; author: string; audience_label: string; pinned: boolean; important: boolean; created_at: string };
+
+function HowAmIDoing() {
+  const study = useStudy();
+  if (study.isPending) return <Skeleton className="h-44" />;
+  if (study.isError || !study.data) return null;
+  const data = study.data;
+  const worst = data.disciplines.filter((item) => item.risk.level === "red" || item.risk.level === "yellow").slice(0, 3);
+  return (
+    <Card aria-labelledby="how-heading">
+      <CardTitle id="how-heading" meta={<MoreLink to="/study">Учёба</MoreLink>}>Как у меня дела</CardTitle>
+      <p className="m-0 text-[22px] leading-tight tracking-[-0.02em]">{data.summary.headline}</p>
+      <div className="mt-3 flex h-2.5 gap-1" aria-hidden>
+        {data.disciplines.map((item) => <span key={item.id} className={`flex-1 rounded-full ${LEVEL_STYLE[item.risk.level].bar}`} />)}
+      </div>
+      <div className="mt-4 flex flex-col gap-2">
+        {worst.length === 0 ? (
+          <p className="m-0 flex items-center gap-2 text-[15px] text-text-2"><CheckCircle2 aria-hidden className="size-5 text-ok" />Рисков нет — так держать.</p>
+        ) : (
+          worst.map((item) => (
+            <Link key={item.id} to={`/study/${item.id}`} className={`nudge soft flex items-center gap-3 rounded-[var(--radius-tile)] p-3 hover:bg-primary-soft ${LEVEL_STYLE[item.risk.level].tile}`}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{item.title}</span>
+                <span className="caption block truncate">{item.risk.reasons[0]?.text}</span>
+              </span>
+              <LevelBadge level={item.risk.level} label={item.risk.label} />
+            </Link>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function DeaneryWritesFirst() {
+  const nudges = useNudges();
+  const client = useQueryClient();
+  const update = useMutation({
+    mutationFn: (input: { id: string; state: string; mute?: boolean }) =>
+      api<void>(`/api/nudges/${input.id}`, { method: "POST", body: { state: input.state, mute: input.mute ?? false } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["nudges"] }),
+  });
+  const items = nudges.data ?? [];
+  if (!items.length) return null;
+  return (
+    <section aria-labelledby="nudges-heading" className="flex flex-col gap-2">
+      <h2 id="nudges-heading" className="m-0 flex items-center gap-2 text-lg font-medium"><Sparkles aria-hidden className="size-5 text-primary" />Деканат пишет первым</h2>
+      <div className="grid gap-3 md:grid-cols-2">
+        {items.slice(0, 4).map((nudge) => (
+          <article key={nudge.id} className="relative flex flex-col gap-2 rounded-[var(--radius-card)] bg-surface p-5 pr-12 shadow-k-card">
+            <p className="caption m-0">{nudge.rule_label}</p>
+            <p className="m-0 font-medium">{nudge.title}</p>
+            <p className="m-0 text-sm text-text-2">{nudge.text}</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {nudge.action.link && (
+                <Link to={nudge.action.link} onClick={() => update.mutate({ id: nudge.id, state: "done" })} className="soft inline-flex min-h-10 items-center rounded-[10px] bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary-hover">
+                  {nudge.action.label ?? "Открыть"}
+                </Link>
+              )}
+              <button onClick={() => update.mutate({ id: nudge.id, state: "dismissed", mute: true })} className="soft min-h-10 rounded-[10px] px-3 text-sm text-muted hover:bg-surface-2">
+                Не показывать такое
+              </button>
+            </div>
+            <button aria-label="Скрыть подсказку" onClick={() => update.mutate({ id: nudge.id, state: "dismissed" })} className="soft absolute top-3 right-3 grid size-9 place-items-center rounded-full text-muted hover:bg-surface-2">
+              <X aria-hidden className="size-4" />
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Announcements() {
+  const list = useQuery({ queryKey: ["announcements"], queryFn: async () => (await api<{ items: Announcement[] }>("/api/announcements")).items, staleTime: 60_000 });
+  const items = (list.data ?? []).slice(0, 3);
+  if (!items.length) return null;
+  return (
+    <Card aria-labelledby="ann-heading">
+      <CardTitle id="ann-heading" meta={<MoreLink to="/notifications?tab=announcements">Все</MoreLink>}>Объявления деканата</CardTitle>
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {items.map((item) => (
+          <li key={item.id} className={`rounded-[var(--radius-tile)] p-3.5 ${item.important ? "bg-[#fff4dc]" : "bg-surface-2"}`}>
+            <p className="m-0 flex items-center gap-1.5 font-medium">
+              {item.pinned ? <Pin aria-label="Закреплено" className="size-4 shrink-0 text-primary" /> : <Megaphone aria-hidden className="size-4 shrink-0 text-muted" />}
+              {item.title}
+            </p>
+            <p className="m-0 mt-1 line-clamp-2 text-sm text-text-2">{item.body}</p>
+            <p className="caption m-0 mt-1">{item.audience_label} · {dateTimeLabel(item.created_at)}</p>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function QuickServices() {
+  const links = [
+    { to: "/student-id", label: "Студенческий", icon: IdCard },
+    { to: "/assistant", label: "Ассистент", icon: Bot },
+    { to: "/requests/new?type=CERT_STUDY&destination=По месту требования&copies=1", label: "Справка за минуту", icon: ClipboardList },
+    { to: "/situations", label: "Ситуации", icon: LifeBuoy },
+  ];
+  return (
+    <nav aria-label="Быстрые сервисы" className="grid grid-cols-4 gap-2">
+      {links.map((link) => (
+        <Link key={link.to} to={link.to} className="soft flex flex-col items-center gap-2 rounded-[var(--radius-card)] bg-surface p-3 text-center text-[12px] leading-tight shadow-k-card hover:bg-surface-2 sm:text-[13px]">
+          <IconChip><link.icon aria-hidden className="size-5" strokeWidth={1.75} /></IconChip>
+          {link.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function SomethingWrong() {
+  const complaints = useMyComplaints();
+  const waiting = (complaints.data ?? []).filter((item) => item.waiting_for_me).length;
+  return (
+    <Link to="/requests?tab=complaints" className="soft flex items-center gap-3 rounded-[var(--radius-card)] bg-surface p-4 shadow-k-card hover:bg-surface-2">
+      <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[#fdecec] text-[#b42318]"><AlertOctagon aria-hidden className="size-5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">Что-то не так? Напишите в деканат</span>
+        <span className="caption block">Красная кнопка: каждое обращение читает человек, ответ — в срок</span>
+      </span>
+      {waiting > 0 && <span className="rounded-full bg-[#e5484d] px-2.5 py-1 text-[12px] font-medium text-white">ответ: {waiting}</span>}
+    </Link>
+  );
+}
+
 function StudentHome() {
   const today = moscowDate();
   const schedule = useSchedule(today, today);
@@ -57,6 +191,8 @@ function StudentHome() {
 
   return (
     <>
+      <QuickServices />
+      <DeaneryWritesFirst />
       <div className="grid gap-3 sm:grid-cols-3">
         <StatusTile
           to="/schedule"
@@ -80,52 +216,59 @@ function StudentHome() {
         />
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <Card aria-labelledby="today-heading">
-          <CardTitle id="today-heading" meta={<MoreLink to="/schedule">Неделя</MoreLink>}>
-            Сегодня
-          </CardTitle>
-          {next && (
-            <div className="mb-4 flex items-end justify-between gap-4 rounded-[var(--radius-tile)] bg-primary p-5 text-on-primary">
-              <div className="min-w-0">
-                <p className="m-0 text-[13px] opacity-80">Следующая пара</p>
-                <p className="m-0 mt-1 truncate text-lg font-medium">{next.title}</p>
-                <p className="m-0 text-[13px] opacity-80">{next.room ? `ауд. ${next.room}` : next.kind}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="m-0 text-[32px] leading-none font-medium tracking-[-0.02em] tabular-nums">{timeLabel(next.starts_at)}</p>
-                <p className="m-0 mt-1 text-[13px] opacity-80">начало</p>
-              </div>
-            </div>
-          )}
-          <p className="caption mt-0 mb-3 first-letter:uppercase">{dayLabel(today)}</p>
-          <div aria-live="polite" className="flex flex-col gap-2.5">
-            {schedule.isPending && <Skeleton className="h-20" />}
-            {schedule.isError && <ErrorState message={schedule.error.message} onRetry={() => schedule.refetch()} />}
-            {schedule.data?.lessons.length === 0 && <EmptyState>Сегодня пар нет.</EmptyState>}
-            {lessons.map((lesson) => <LessonCard key={lesson.id} lesson={lesson} />)}
-          </div>
-        </Card>
-
-        <Card aria-labelledby="latest-heading">
-          <CardTitle id="latest-heading" meta={<MoreLink to="/notifications">Все</MoreLink>}>
-            Уведомления
-          </CardTitle>
-          <div className="flex flex-col gap-2.5">
-            {latest.isPending && <Skeleton className="h-16" />}
-            {latest.isError && <ErrorState message={latest.error.message} onRetry={() => latest.refetch()} />}
-            {latest.data?.items.length === 0 && <EmptyState>Новых уведомлений нет.</EmptyState>}
-            {latest.data?.items.map((item) => (
-              <div key={item.id} className="flex gap-3 rounded-[var(--radius-tile)] bg-surface-2 p-3.5">
-                <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${item.read_at ? "bg-line-strong" : "bg-primary"}`} />
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
+          <HowAmIDoing />
+          <Card aria-labelledby="today-heading">
+            <CardTitle id="today-heading" meta={<MoreLink to="/schedule">Неделя</MoreLink>}>
+              Сегодня
+            </CardTitle>
+            {next && (
+              <div className="mb-4 flex items-end justify-between gap-4 rounded-[var(--radius-tile)] bg-primary p-5 text-on-primary">
                 <div className="min-w-0">
-                  <p className="m-0 text-[15px] font-medium">{item.title}</p>
-                  <p className="m-0 text-sm text-text-2">{item.body}</p>
+                  <p className="m-0 text-[13px] opacity-80">Следующая пара</p>
+                  <p className="m-0 mt-1 truncate text-lg font-medium">{next.title}</p>
+                  <p className="m-0 text-[13px] opacity-80">{next.room ? `ауд. ${next.room}` : next.kind}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="m-0 text-[32px] leading-none font-medium tracking-[-0.02em] tabular-nums">{timeLabel(next.starts_at)}</p>
+                  <p className="m-0 mt-1 text-[13px] opacity-80">начало</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
+            )}
+            <p className="caption mt-0 mb-3 first-letter:uppercase">{dayLabel(today)}</p>
+            <div aria-live="polite" className="flex flex-col gap-2.5">
+              {schedule.isPending && <Skeleton className="h-20" />}
+              {schedule.isError && <ErrorState message={schedule.error.message} onRetry={() => schedule.refetch()} />}
+              {schedule.data?.lessons.length === 0 && <EmptyState>Сегодня пар нет.</EmptyState>}
+              {lessons.map((lesson) => <LessonCard key={lesson.id} lesson={lesson} />)}
+            </div>
+          </Card>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <SomethingWrong />
+          <Announcements />
+          <Card aria-labelledby="latest-heading">
+            <CardTitle id="latest-heading" meta={<MoreLink to="/notifications">Все</MoreLink>}>
+              Уведомления
+            </CardTitle>
+            <div className="flex flex-col gap-2.5">
+              {latest.isPending && <Skeleton className="h-16" />}
+              {latest.isError && <ErrorState message={latest.error.message} onRetry={() => latest.refetch()} />}
+              {latest.data?.items.length === 0 && <EmptyState>Новых уведомлений нет. Мы напишем, когда что-то изменится.</EmptyState>}
+              {latest.data?.items.map((item) => (
+                <div key={item.id} className="flex gap-3 rounded-[var(--radius-tile)] bg-surface-2 p-3.5">
+                  <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${item.read_at ? "bg-line-strong" : "bg-primary"}`} />
+                  <div className="min-w-0">
+                    <p className="m-0 text-[15px] font-medium">{item.title}</p>
+                    <p className="m-0 text-sm text-text-2">{item.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
     </>
   );
@@ -141,14 +284,7 @@ export function HomePage() {
         <h1 className="m-0 text-[30px] font-normal tracking-[-0.03em] sm:text-[40px]">{firstName}, привет!</h1>
         <p className="caption m-0 mt-1">Добро пожаловать в личный кабинет · {user.role_label.toLowerCase()}</p>
       </header>
-      {user.role === "student" ? (
-        <StudentHome />
-      ) : (
-        <Card>
-          <CardTitle meta={<MoreLink to="/staff/requests">Очередь</MoreLink>}>Кабинет сотрудника</CardTitle>
-          <p className="m-0 text-text-2">Заявки студентов вашего факультета — в очереди, по сроку. Панель факультета и объявления появятся в следующих модулях.</p>
-        </Card>
-      )}
+      {user.role === "student" ? <StudentHome /> : <StaffHome />}
     </div>
   );
 }

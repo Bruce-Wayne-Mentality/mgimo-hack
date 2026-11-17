@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellRing, Bot, CalendarDays, CheckCircle2, ClipboardList, IdCard, LifeBuoy, Megaphone, Pin, Sparkles, X, type LucideIcon } from "lucide-react";
+import { AlertOctagon, BellRing, Bot, CalendarDays, CheckCircle2, ClipboardList, IdCard, LifeBuoy, Megaphone, Pin, Sparkles, X, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
 import { Card, CardTitle, EmptyState, ErrorState, IconChip, MoreLink, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import type { NotificationPage } from "@/lib/types";
+import { useMyComplaints } from "../complaints/api";
 import { OPEN, dateTimeLabel, useMyRequests } from "../requests/api";
 import { dayLabel, LessonCard, moscowDate, timeLabel, useSchedule } from "../schedule/lessons";
 import { StaffHome } from "../staff/StaffPages";
@@ -161,6 +162,21 @@ function QuickServices() {
   );
 }
 
+function SomethingWrong() {
+  const complaints = useMyComplaints();
+  const waiting = (complaints.data ?? []).filter((item) => item.waiting_for_me).length;
+  return (
+    <Link to="/requests?tab=complaints" className="soft flex items-center gap-3 rounded-[var(--radius-card)] bg-surface p-4 shadow-k-card hover:bg-surface-2">
+      <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[#fdecec] text-[#b42318]"><AlertOctagon aria-hidden className="size-5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">Что-то не так? Напишите в деканат</span>
+        <span className="caption block">Красная кнопка: каждое обращение читает человек, ответ — в срок</span>
+      </span>
+      {waiting > 0 && <span className="rounded-full bg-[#e5484d] px-2.5 py-1 text-[12px] font-medium text-white">ответ: {waiting}</span>}
+    </Link>
+  );
+}
+
 function StudentHome() {
   const today = moscowDate();
   const schedule = useSchedule(today, today);
@@ -231,6 +247,7 @@ function StudentHome() {
         </div>
 
         <div className="flex flex-col gap-4">
+          <SomethingWrong />
           <Announcements />
           <Card aria-labelledby="latest-heading">
             <CardTitle id="latest-heading" meta={<MoreLink to="/notifications">Все</MoreLink>}>

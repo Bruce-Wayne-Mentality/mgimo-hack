@@ -67,7 +67,7 @@ export function MorePage() {
     { to: "/calendar", label: "Календарь", hint: "Пары, дедлайны, сессия и подписка .ics", icon: CalendarRange },
     { to: "/booking", label: "Бронирование", hint: "Коворкинги, аудитории, приём в деканате", icon: DoorOpen },
     { to: "/situations", label: "Жизненные ситуации", hint: "Академ, перевод, несданный экзамен", icon: LifeBuoy },
-    { to: "/complaints", label: "Красная кнопка", hint: "Жалоба на несправедливость", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
+    { to: "/requests?tab=complaints", label: "Красная кнопка", hint: "Сообщить о проблеме или несправедливости", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
   ];
   const staff: Entry[] = [
     { to: "/staff/requests", label: "Очередь заявок", hint: "По сроку, с подсветкой просрочки", icon: ClipboardList },
@@ -76,9 +76,10 @@ export function MorePage() {
     { to: "/staff/announcements", label: "Объявления", hint: "Группе, курсу или факультету", icon: Megaphone },
     { to: "/staff/check", label: "Проверить QR", hint: "Студенческий билет или справка", icon: ScanLine },
     { to: "/booking", label: "Брони и загрузка", hint: "Тепловая карта и отмена броней", icon: DoorOpen },
+    { to: "/staff/complaints", label: "Обращения", hint: "Красная кнопка: очередь исполнителя", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
   ];
   const admin: Entry[] = [
-    { to: "/admin/complaints", label: "Красная кнопка", hint: "Обращения студентов", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
+    { to: "/staff/moderation", label: "Ручная модерация", hint: "Красная кнопка: решения куратора", icon: AlertOctagon, tone: "bg-[#fdecec] text-[#b42318]" },
     { to: "/admin/audit", label: "Журнал действий", hint: "Входы, оценки, документы", icon: ScrollText },
   ];
   const settings: Entry[] = [

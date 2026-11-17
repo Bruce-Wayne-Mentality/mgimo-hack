@@ -155,6 +155,10 @@ export function RequestDetailPage() {
                 : `Обычно готово до ${dateTimeLabel(data.due_at)} — это ориентир по сроку типа заявки, не точное обещание.`}
             </p>
           )}
+          {open && new Date(data.due_at).getTime() < Date.now() && (
+            <Link to={`/complaints/new?category=documents&link_type=request&link_id=${data.id}&link_label=${encodeURIComponent(`${data.number} · ${data.type.title}`)}`}
+              className="mt-2 inline-block text-sm font-medium text-danger hover:underline">Пожаловаться на сроки</Link>
+          )}
           {data.can_cancel && (
             <div className="mt-4">
               {confirming ? (

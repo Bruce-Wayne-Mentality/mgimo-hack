@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ClipboardList, Megaphone, Pin, ScanLine, Timer, Trash2, Zap } from "lucide-react";
+import { AlertTriangle, ClipboardList, Megaphone, Pin, Timer, Trash2, Zap } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Alert, Button, Card, CardTitle, EmptyState, ErrorState, Field, Input, MoreLink, PageHeader, Skeleton, Switch } from "@/components/ui";
@@ -82,11 +82,11 @@ export function StaffHome() {
               </Card>
               <div className="grid grid-cols-2 gap-3">
                 <Link to="/staff/announcements" className="soft flex flex-col gap-2 rounded-[var(--radius-card)] bg-surface p-4 shadow-k-card hover:bg-surface-2"><Megaphone aria-hidden className="size-5 text-primary" /><span className="font-medium">Объявление</span><span className="caption">группе, курсу, факультету</span></Link>
-                <Link to="/staff/check" className="soft flex flex-col gap-2 rounded-[var(--radius-card)] bg-surface p-4 shadow-k-card hover:bg-surface-2"><ScanLine aria-hidden className="size-5 text-primary" /><span className="font-medium">Проверить QR</span><span className="caption">студенческий или справку</span></Link>
+                <Link to="/staff/complaints" className="soft flex flex-col gap-2 rounded-[var(--radius-card)] bg-[#fff5f5] p-4 shadow-k-card hover:bg-surface-2"><AlertTriangle aria-hidden className="size-5 text-danger" /><span className="font-medium">Обращения</span><span className="caption">красная кнопка</span></Link>
               </div>
               {user.role === "admin" && (
                 <div className="grid grid-cols-2 gap-3">
-                  <Link to="/admin/complaints" className="soft flex flex-col gap-2 rounded-[var(--radius-card)] bg-[#fff5f5] p-4 shadow-k-card hover:bg-surface-2"><AlertTriangle aria-hidden className="size-5 text-danger" /><span className="font-medium">Красная кнопка</span><span className="caption">обращения студентов</span></Link>
+                  <Link to="/staff/moderation" className="soft flex flex-col gap-2 rounded-[var(--radius-card)] bg-[#fff5f5] p-4 shadow-k-card hover:bg-surface-2"><AlertTriangle aria-hidden className="size-5 text-danger" /><span className="font-medium">Ручная модерация</span><span className="caption">красная кнопка</span></Link>
                   <Link to="/admin/audit" className="soft flex flex-col gap-2 rounded-[var(--radius-card)] bg-surface p-4 shadow-k-card hover:bg-surface-2"><ClipboardList aria-hidden className="size-5 text-primary" /><span className="font-medium">Журнал действий</span><span className="caption">кто, что и когда</span></Link>
                 </div>
               )}

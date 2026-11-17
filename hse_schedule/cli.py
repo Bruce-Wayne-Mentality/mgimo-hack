@@ -54,7 +54,7 @@ async def _seed_database(database) -> dict:
     from .accounts.seed import seed_demo
     from .announcements import seed_announcements
     from .booking import seed_booking
-    from .complaints import seed_complaints
+    from .redbutton.seed import seed_redbutton
     from .student_requests.seed import seed_demo_requests, seed_request_types
 
     created = await seed_demo(database)
@@ -62,7 +62,7 @@ async def _seed_database(database) -> dict:
     created["academics"] = await seed_academics(database)
     created["requests"] = await seed_demo_requests(database)
     created["announcements"] = await seed_announcements(database)
-    created["complaints"] = await seed_complaints(database)
+    created["complaints"] = await seed_redbutton(database)
     created["resources"] = await seed_booking(database)
     if DEMO_WEEK.is_file() and DEMO_STUDENTS.is_file():
         from .schedule_changes import seed_schedule_changes
@@ -91,7 +91,10 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     from .assistant.router import register_assistant_routes
     from .booking import BookingService, register_booking_routes
     from .calendar_feed import CalendarService, register_calendar_routes
-    from .complaints import ComplaintService, register_complaint_routes
+    from .gigachat import GigaChat
+    from .redbutton.crypto import KeyStore
+    from .redbutton.router import register_redbutton_routes
+    from .redbutton.service import RedButtonService
     from .admin import register_admin_routes
     from .documents.router import register_document_routes
     from .documents.service import DocumentService
@@ -108,7 +111,8 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
     announcements = AnnouncementService(database, notify=notify)
     booking = BookingService(database, schedule, notify=notify)
     calendar = CalendarService(database, schedule, extra_sources=(booking.calendar_events,))
-    complaints = ComplaintService(database, notify=notify)
+    gigachat = GigaChat.from_env()
+    redbutton = RedButtonService(database, keys=KeyStore(), gigachat=gigachat, notify=notify)
     overlay = overlay or Overlay()
     changes = ScheduleChangeService(database, schedule, overlay)
 
@@ -126,7 +130,7 @@ def _modules(database, store, secret: bytes, schedule, request_service, *, demo:
         lambda app: register_student_id_routes(app, student_id),
         lambda app: register_announcement_routes(app, announcements),
         lambda app: register_calendar_routes(app, calendar),
-        lambda app: register_complaint_routes(app, complaints),
+        lambda app: register_redbutton_routes(app, redbutton),
         lambda app: register_booking_routes(app, booking),
         lambda app: register_assistant_routes(app, academics, request_service, schedule),
         lambda app: register_schedule_change_routes(app, changes),
@@ -229,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
 
             upgrade(url)
             store = NotificationStore(args.state_dir / "demo" / "notifications.sqlite3")
+            os.environ.setdefault("REDBUTTON_KEY_DIR", str((args.state_dir / "demo" / "keys").resolve()))
 
             async def run() -> dict:
                 database = Database(url, pooled=False)
@@ -263,6 +268,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.demo and (args.fixture or args.tokens_file):
                 raise ConfigurationError("Для --demo не задавайте --fixture и --tokens-file.")
             state_dir = args.state_dir / ("demo" if args.demo else "live")
+            # Red-button keys live next to the server state, outside the database and its backups.
+            os.environ.setdefault("REDBUTTON_KEY_DIR", str((state_dir / "keys").resolve()))
             database_url = _database_url(args)
             if args.demo and not database_url:
                 state_dir.mkdir(parents=True, exist_ok=True)

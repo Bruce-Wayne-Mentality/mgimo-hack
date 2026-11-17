@@ -19,7 +19,6 @@ from hse_schedule.accounts.seed import DEMO_ACCOUNTS
 from hse_schedule.accounts.service import AuthService
 from hse_schedule.api import create_app
 from hse_schedule.cli import DEMO_STUDENTS, DEMO_WEEK, _modules, _seed_database, _service
-from hse_schedule.complaints import DEMO_TRACKING_CODE, Complaint
 from hse_schedule.db import Database
 from hse_schedule.migrate import upgrade
 from hse_schedule.notification_store import NotificationStore
@@ -74,6 +73,8 @@ class FeatureTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temporary = Path(tempfile.mkdtemp())
+        os.environ["REDBUTTON_KEY_DIR"] = str(cls.temporary / "keys")
+        os.environ["REDBUTTON_WORKER"] = "0"  # TestClient loops are short-lived; tests call tick() themselves
         cls.url = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{(cls.temporary / 'app.sqlite3').as_posix()}"
         if os.environ.get("TEST_DATABASE_URL"):
             reset_postgres(cls.url)
@@ -253,42 +254,7 @@ class CardCalendarTests(FeatureTestCase):
         self.client().delete("/api/calendar/ics")
 
 
-class ComplaintAnnouncementTests(FeatureTestCase):
-    def test_anonymous_complaint_keeps_no_author(self):
-        body = {"category": "regulation", "mode": "anonymous",
-                "summary": "Преподаватель требует оплатить пособие как условие допуска к зачёту."}
-        created = self.client(VERA).post("/api/complaints", json=body)
-        self.assertEqual(created.status_code, 201, created.text)
-        code = created.json()["tracking_code"]
-        self.assertTrue(code.startswith("RB-"))
-
-        async def rows():
-            async with self.database.session() as db:
-                complaint = await db.scalar(select(Complaint).where(Complaint.number == created.json()["complaint"]["number"]))
-                audit = (await db.scalars(select(AuditLog).where(AuditLog.object_id == str(complaint.id)))).all()
-                return complaint, audit
-
-        complaint, audit = asyncio.run(rows())
-        self.assertIsNone(complaint.author_id)
-        self.assertTrue(all(row.actor_id is None for row in audit))
-        self.assertNotEqual(complaint.track_hash, code)
-        self.assertEqual(self.client(VERA).get("/api/complaints").json()["items"], [])
-        tracked = self.anonymous().post("/api/complaints/track", json={"code": code}).json()
-        self.assertEqual(tracked["status"], "new")
-        self.assertNotIn("summary", tracked)
-        self.assertEqual(self.anonymous().post("/api/complaints/track", json={"code": DEMO_TRACKING_CODE}).status_code, 200)
-
-    def test_admin_flow_and_reveal(self):
-        admin = self.client(ADMIN)
-        queue = admin.get("/api/admin/complaints").json()["items"]
-        confidential = next(item for item in queue if item["mode"] == "confidential")
-        self.assertEqual(confidential["author"], "Скрыт (конфиденциально)")
-        self.assertEqual(self.client(STAFF).get("/api/admin/complaints").status_code, 404)
-        self.assertEqual(admin.post(f"/api/admin/complaints/{confidential['id']}/transition", json={"to": "resolved"}).status_code, 409)
-        self.assertEqual(admin.post(f"/api/admin/complaints/{confidential['id']}/transition", json={"to": "rejected"}).status_code, 422)
-        revealed = admin.post(f"/api/admin/complaints/{confidential['id']}/reveal", json={"reason": "Нужна встреча с автором"}).json()
-        self.assertTrue(revealed["author"].startswith("Борис"))
-
+class AnnouncementTests(FeatureTestCase):
     def test_announcement_audience(self):
         staff = self.client(STAFF)
         meta = staff.get("/api/staff/announcements").json()

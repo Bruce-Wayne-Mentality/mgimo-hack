@@ -196,7 +196,6 @@ export function LoginPage() {
             )}
             <Card className="flex flex-col gap-2 text-sm">
               <p className="m-0 font-medium">Без входа</p>
-              <Link to="/track" className="text-primary hover:underline">Статус анонимного обращения по коду (демо-код: RB-DEMO-2026-TRACK)</Link>
               <Link to="/about" className="text-primary hover:underline">О проекте: концепт, безопасность, лицензии</Link>
             </Card>
             <div className="pt-2">

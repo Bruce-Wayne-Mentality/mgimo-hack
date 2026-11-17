@@ -12,12 +12,12 @@ const AboutPage = lazy(() => import("@/features/about/AboutPage").then((module) 
 const AssistantPage = lazy(() => import("@/features/assistant/AssistantPage").then((module) => ({ default: module.AssistantPage })));
 const BookingPage = lazy(() => import("@/features/booking/BookingPage").then((module) => ({ default: module.BookingPage })));
 const CalendarPage = lazy(() => import("@/features/calendar/CalendarPage").then((module) => ({ default: module.CalendarPage })));
-const AdminComplaintPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.AdminComplaintPage })));
-const AdminComplaintsPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.AdminComplaintsPage })));
 const ComplaintPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.ComplaintPage })));
 const ComplaintsPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.ComplaintsPage })));
 const NewComplaintPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.NewComplaintPage })));
-const TrackPage = lazy(() => import("@/features/complaints/ComplaintPages").then((module) => ({ default: module.TrackPage })));
+const StaffComplaintsPage = lazy(() => import("@/features/complaints/StaffComplaintPages").then((module) => ({ default: module.StaffComplaintsPage })));
+const StaffComplaintPage = lazy(() => import("@/features/complaints/StaffComplaintPages").then((module) => ({ default: module.StaffComplaintPage })));
+const ModerationPage = lazy(() => import("@/features/complaints/StaffComplaintPages").then((module) => ({ default: module.ModerationPage })));
 const VerifyPage = lazy(() => import("@/features/documents/VerifyPage").then((module) => ({ default: module.VerifyPage })));
 const NotificationsPage = lazy(() => import("@/features/notifications/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
 const ProfilePage = lazy(() => import("@/features/profile/ProfilePage").then((module) => ({ default: module.ProfilePage })));
@@ -40,14 +40,12 @@ const ScanPage = lazy(() => import("@/features/studentid/ScanPage").then((module
 const IdCheckPage = lazy(() => import("@/features/studentid/StudentIdPage").then((module) => ({ default: module.IdCheckPage })));
 const StudentIdPage = lazy(() => import("@/features/studentid/StudentIdPage").then((module) => ({ default: module.StudentIdPage })));
 
-// Public screens: login, document check (K2), student card check (K3),
-// anonymous complaint tracking (K7) and «О проекте». Everything else sits
+// Public screens: login, document check (K2), student card check (K3) and «О проекте». Everything else sits
 // behind RequireAuth (the server also redirects page requests without a session).
 export const routes: RouteObject[] = [
   { path: "/login", element: <LoginPage /> },
   { path: "/verify/:token", element: <Lazy><VerifyPage /></Lazy> },
   { path: "/id/:token", element: <Lazy><IdCheckPage /></Lazy> },
-  { path: "/track", element: <Lazy><TrackPage /></Lazy> },
   { path: "/about", element: <Lazy><AboutPage /></Lazy> },
   {
     element: <RequireAuth />,
@@ -89,13 +87,14 @@ export const routes: RouteObject[] = [
               { path: "staff/announcements", element: <Lazy><StaffAnnouncementsPage /></Lazy> },
               { path: "staff/check", element: <Lazy><ScanPage /></Lazy> },
               { path: "staff/schedule", element: <Lazy><ScheduleEditorPage /></Lazy> },
+              { path: "staff/complaints", element: <Lazy><StaffComplaintsPage /></Lazy> },
+              { path: "staff/complaints/:id", element: <Lazy><StaffComplaintPage /></Lazy> },
+              { path: "staff/moderation", element: <Lazy><ModerationPage /></Lazy> },
             ],
           },
           {
             element: <RequireAuth roles={["admin"]} />,
             children: [
-              { path: "admin/complaints", element: <Lazy><AdminComplaintsPage /></Lazy> },
-              { path: "admin/complaints/:id", element: <Lazy><AdminComplaintPage /></Lazy> },
               { path: "admin/audit", element: <Lazy><AuditPage /></Lazy> },
             ],
           },

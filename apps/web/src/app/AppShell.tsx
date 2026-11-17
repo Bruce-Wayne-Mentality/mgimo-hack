@@ -20,7 +20,7 @@ const NAV: Item[] = [
   { to: "/staff/requests", label: "Очередь", icon: ClipboardList, staffOnly: true },
   { to: "/staff/grades", label: "Журнал", icon: BookOpenCheck, staffOnly: true },
   { to: "/staff/announcements", label: "Объявления", icon: Megaphone, staffOnly: true, desktopOnly: true },
-  { to: "/admin/complaints", label: "Обращения", icon: AlertOctagon, adminOnly: true, desktopOnly: true },
+  { to: "/staff/complaints", label: "Обращения", icon: AlertOctagon, staffOnly: true, desktopOnly: true },
   { to: "/notifications", label: "Уведомления", icon: Bell, studentOnly: true, desktopOnly: true },
   { to: "/more", label: "Ещё", icon: LayoutGrid },
 ];

@@ -62,6 +62,7 @@ function MyBookings() {
             <p className="m-0 font-medium">{item.resource.title}</p>
             <p className="caption m-0 mt-0.5 first-letter:uppercase">{fullDay(item.starts_at)}, {timeLabel(item.starts_at)}–{timeLabel(item.ends_at)} · {item.status_label}{item.checked_in ? " · вы на месте" : ""}</p>
             {item.purpose && <p className="m-0 mt-1 text-sm text-text-2">{item.purpose}</p>}
+            <a href={`/complaints/new?room=${encodeURIComponent(item.resource.title)}`} className="mt-1 inline-block text-[13px] text-[#b42318] hover:underline">Сообщить о проблеме с помещением</a>
             {item.cancel_reason && item.status === "cancelled" && <p className="m-0 mt-1 text-sm text-text-2">{item.cancel_reason}</p>}
             {(item.can_check_in || item.can_cancel) && (
               <div className="mt-3 flex flex-wrap gap-2">

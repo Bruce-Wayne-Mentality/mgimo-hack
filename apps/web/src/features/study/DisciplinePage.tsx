@@ -221,6 +221,10 @@ export function DisciplinePage() {
               </ul>
             )}
           </Card>
+          <Link to={`/complaints/new?category=grades&link_type=discipline&link_id=${data.id}&link_label=${encodeURIComponent(data.title)}`}
+            className="soft flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-[#fff5f5] px-4 text-sm font-medium text-[#b42318] hover:bg-[#fdecec]">
+            Оспорить или сообщить о несправедливости
+          </Link>
           <p className="caption m-0">Пороги и формула — допущения концепта. <Link className="text-primary" to="/assistant?q=Как работает светофор">Спросить ассистента</Link></p>
         </div>
       </div>

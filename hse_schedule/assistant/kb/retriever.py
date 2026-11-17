@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,6 +32,10 @@ RRF_K = 60
 POOL = 20
 THRESHOLDS = Path(__file__).with_name("thresholds.json")
 QUERY_TIMEOUT = 5.0
+# «см. п. 5.2 Положения о стипендиальном обеспечении (док. 04)», «п. 5.1 этого Положения (док. 01)»
+REFERENCE = re.compile(r"п\.\s*(\d+(?:\.\d+)+)[^()]{0,160}?\(док\.\s*([\w-]+)\)")
+# «… с Положением … (док. 01) применяется срок, установленный п. 5.1 этого Положения»
+REFERENCE_BACK = re.compile(r"\(док\.\s*([\w-]+)\)[^()]{0,120}?п\.\s*(\d+(?:\.\d+)+)")
 log = logging.getLogger("hse_schedule.assistant.kb")
 
 
@@ -59,6 +64,7 @@ class Hit:
     score: float
     bm25: float = 0.0
     cosine: float | None = None
+    reference: bool = False  # added because a found fragment points to it, not found by the search itself
 
 
 @dataclass
@@ -191,3 +197,36 @@ class Retriever:
             present = set(tokens(top.fragment.text))
             result.term_coverage = len(terms & present) / len(terms) if terms else 0.0
         return result
+
+
+    def expand_references(self, hits: list[Hit], limit: int = 5) -> list[Hit]:
+        """Add fragments the found ones explicitly point to («п. 5.2 … (док. 07)»), right after them.
+
+        A rule that says «see clause 5.1 of document 01» is only half an answer;
+        the referenced clause goes to the answerer together with it.
+        """
+        from .chunker import matches_section
+
+        state = self._state
+        pending = list(hits)
+        placed: set = set()
+        out: list[Hit] = []
+        while pending:
+            hit = pending.pop(0)
+            if hit.fragment.id in placed:
+                continue
+            out.append(hit)
+            placed.add(hit.fragment.id)
+            refs = REFERENCE.findall(hit.fragment.body) + [(n, d) for d, n in REFERENCE_BACK.findall(hit.fragment.body)]
+            for number, doc_id in refs:
+                target = next((f for f in state.fragments if f.doc_id == doc_id and matches_section(f.section_path, number)), None)
+                if target is None or target.id in placed:
+                    continue
+                # already found lower in the list? move it up, right after the clause that points to it
+                found = next((h for h in pending if h.fragment.id == target.id), None)
+                if found is not None:
+                    pending.remove(found)
+                out.append(Hit(fragment=target, score=hit.score, bm25=found.bm25 if found else 0.0,
+                               cosine=found.cosine if found else None, reference=True))
+                placed.add(target.id)
+        return out[:limit]

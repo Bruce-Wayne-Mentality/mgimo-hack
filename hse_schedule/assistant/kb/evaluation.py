@@ -40,7 +40,9 @@ async def run_mode(retriever: Retriever, questions: list[dict], mode: str) -> li
     rows = []
     for q in questions:
         result = await retriever.search(q["question"], k=5, mode=mode)
-        rows.append({"q": q, "result": result, "rank": _rank(result, q) if q["answerable"] else None})
+        expanded = SearchResult(hits=retriever.expand_references(result.hits, limit=5), mode=result.mode)
+        rows.append({"q": q, "result": result, "rank": _rank(result, q) if q["answerable"] else None,
+                     "rank_refs": _rank(expanded, q) if q["answerable"] else None, "expanded": expanded})
     return rows
 
 
@@ -58,6 +60,9 @@ def metrics(rows: list[dict], thresholds: dict) -> dict:
         "hit@1": hit(1), "hit@3": hit(3), "hit@5": hit(5),
         "mrr": sum(1 / r["rank"] for r in answerable if r["rank"]) / n,
         "must@5": must,
+        "hit@5_refs": sum(1 for r in answerable if r.get("rank_refs")) / n,
+        "must@5_refs": sum(1 for r in answerable
+                           if all(m in "\n".join(h.fragment.text for h in r["expanded"].hits[:5]) for m in r["q"]["must_contain"])) / n,
         "refused": sum(1 for r in refusals if not is_confident(r["result"], thresholds)),
         "refusals_total": len(refusals),
         "accepted": sum(1 for r in answerable if is_confident(r["result"], thresholds)),
@@ -135,6 +140,10 @@ def report(results: dict[str, list[dict] | None], thresholds: dict) -> tuple[str
         table[mode] = m
         lines.append(f"| {label} | {m['hit@1']:.2f} | {m['hit@3']:.2f} | {m['hit@5']:.2f} | {m['mrr']:.2f} | {m['must@5']:.2f} | "
                      f"{m['refused']} из {m['refusals_total']} | {m['accepted']} из {m['answerable_total']} |")
+    refs = [f"{label}: hit@5 {table[m]['hit@5_refs']:.2f}, must_contain@5 {table[m]['must@5_refs']:.2f}"
+            for m, label in MODES if m in table]
+    if refs:
+        lines += ["", "После раскрытия перекрёстных ссылок (то, что уходит в генерацию ответа): " + "; ".join(refs)]
     return "\n".join(lines), table
 
 

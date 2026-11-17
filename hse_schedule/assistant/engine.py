@@ -23,29 +23,16 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from .knowledge import DOCUMENTS
+from .textsearch import STOP, stem, tokens  # noqa: F401  (shared with the knowledge base)
 
 MOSCOW = ZoneInfo("Europe/Moscow")
 DISCLAIMER = "Это ИИ. Он может ошибаться; важное проверьте у деканата."
-
-_WORD = re.compile(r"[a-zа-яё0-9]+", re.IGNORECASE)
-STOP = set("и в во на по к ко с со о об от до за из у а но или ли же бы не ни что как где когда мне меня мой моя мои мою "
-           "я ты вы вас вам это этот эта то та там тут ещё еще уже для при про над под без очень можно нужно надо "
-           "хочу какой какая какие каких сколько есть будет был была".split())
 
 INJECTION = re.compile(
     r"(игнорир|забудь\s+(все|всё|инструкц)|ignore\s+(all|previous)|system\s*prompt|системн\w+\s+промпт|"
     r"ты\s+теперь|притворись|jailbreak|developer\s+mode|режим\s+разработчика)", re.IGNORECASE)
 OTHERS = re.compile(r"(оценк\w*|балл\w*|заявк\w*|данные|расписани\w*)\s+(другого|других|чуж\w+|однокурсник\w*|бориса|анны|веры|студента\s+\w+)",
                     re.IGNORECASE)
-
-
-def stem(word: str) -> str:
-    word = word.lower().replace("ё", "е")
-    return word[:6] if len(word) > 6 else word
-
-
-def tokens(text: str) -> list[str]:
-    return [stem(w) for w in _WORD.findall(text.lower()) if w.lower() not in STOP and len(w) > 1]
 
 
 class Index:

@@ -116,6 +116,23 @@ class RetrieverTests(unittest.TestCase):
         after = asyncio.run(r.search("общежитие"))
         self.assertEqual(after.hits[0].fragment.section_path, "п. 9")
 
+    def test_expansion_finds_the_rule_by_its_own_words(self):
+        r = self.retriever()
+        plain = asyncio.run(r.search("сколько можно отдыхать от учёбы"))
+        self.assertEqual(plain.hits, [])  # no shared words with the rules
+        rewritten = asyncio.run(r.search("сколько можно отдыхать от учёбы", expansion="академический отпуск срок"))
+        self.assertEqual(rewritten.mode, "bm25_rewrite")
+        self.assertEqual(rewritten.hits[0].fragment.section_path, "п. 3")
+        self.assertGreater(rewritten.term_coverage, 0.5)  # the regulation's words count as the question's
+
+    def test_rewrite_mode_has_its_own_thresholds(self):
+        r = self.retriever()
+        result = asyncio.run(r.search("отпуск", expansion="академический отпуск"))
+        loose = {"bm25_only": {"min_bm25": 99, "min_term_coverage": 1.0}, "bm25_rewrite": {"min_bm25": 0.1, "min_term_coverage": 0.1},
+                 "hybrid": {"min_cosine": 0.5, "min_term_coverage": 0.3}}
+        self.assertTrue(is_confident(result, loose))
+        self.assertFalse(is_confident(result, {**loose, "bm25_rewrite": {"min_bm25": 99, "min_term_coverage": 1.0}}))
+
     def test_term_coverage_and_confidence(self):
         r = self.retriever()
         result = asyncio.run(r.search("стипендия выплата"))

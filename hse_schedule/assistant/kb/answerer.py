@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from ...redbutton.stage1 import mask_pdn
@@ -32,7 +34,34 @@ LONG_DIGITS = re.compile(r"\b\d[\d\s-]{6,}\d\b")  # record book, passport, card 
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 LINK = re.compile(r"(https?://\S+|www\.\S+|\S+@\S+\.\w+|/[a-z][\w/-]{2,})", re.IGNORECASE)
 MAX_ANSWER = 900
+LABEL = re.compile(r"s\s*(\d+)", re.IGNORECASE)
 TIMEOUT = 12.0
+REWRITE_TIMEOUT = 6.0
+_rewrites: OrderedDict[str, str] = OrderedDict()  # masked question → terms; the same question costs one call
+
+
+async def rewrite_query(gigachat, masked: str) -> str | None:
+    """The regulations' words for a (masked) question, for BM25. None when GigaChat is absent or fails."""
+    if gigachat is None or not masked.strip():
+        return None
+    if masked in _rewrites:
+        _rewrites.move_to_end(masked)
+        return _rewrites[masked]
+    try:
+        result = await asyncio.wait_for(
+            gigachat.chat_json(prompts.REWRITE_SYSTEM, f"Вопрос студента: {masked}", prompts.REWRITE_SCHEMA,
+                               name="terms", temperature=0.0, max_tokens=120),
+            timeout=REWRITE_TIMEOUT)
+        terms = result.data.get("terms") if isinstance(result.data, dict) else None
+        if not isinstance(terms, list):
+            return None
+        text = " ".join(t.strip() for t in terms if isinstance(t, str) and t.strip())[:400]
+    except Exception:  # unavailable, timeout, invalid answer: search without the terms
+        return None
+    _rewrites[masked] = text
+    if len(_rewrites) > 512:
+        _rewrites.popitem(last=False)
+    return text or None
 
 
 @dataclass
@@ -55,6 +84,23 @@ def _source(hit: Hit) -> dict:
             "chunk_id": str(f.id), "excerpt": f.body[:700]}
 
 
+def normalize_labels(used) -> list[str]:
+    """«@S1», «[S1]», «s1», «источник S1» → «S1»; empty strings dropped. Seen from GigaChat-2-Max."""
+    labels = []
+    for item in used or []:
+        match = LABEL.search(str(item))
+        if match:
+            labels.append(f"S{int(match.group(1))}")
+    return list(dict.fromkeys(labels))
+
+
+def answer_schema(labels: list[str]) -> dict:
+    """The answer schema with used_sources limited to the labels actually sent."""
+    schema = {**prompts.SCHEMA, "properties": dict(prompts.SCHEMA["properties"])}
+    schema["properties"]["used_sources"] = {"type": "array", "items": {"type": "string", "enum": labels}}
+    return schema
+
+
 def check_answer(answer: str, used: list[str], sources: dict[str, Hit]) -> str | None:
     """None when the answer passes; otherwise the reason it is rejected."""
     if not answer.strip():
@@ -67,8 +113,9 @@ def check_answer(answer: str, used: list[str], sources: dict[str, Hit]) -> str |
         return "unknown_source"
     # A cited rule that points to another clause («применяется п. 5.1 Положения…») is only half
     # of the answer: the clause it points to must be cited too (conflict and cross-reference traps).
+    cited_fragments = {sources[u].fragment.id for u in used if u in sources}
     for hit in sources.values():
-        if hit.referenced_by is not None and str(hit.referenced_by) in used and str(hit.fragment.id) not in used:
+        if hit.referenced_by is not None and hit.referenced_by in cited_fragments and hit.fragment.id not in cited_fragments:
             return "reference_ignored"
     cited = "\n".join(sources[chunk_id].fragment.text for chunk_id in used)
     cited_flat = cited.replace(" ", "").replace(" ", "")
@@ -93,11 +140,17 @@ def _extract(hits: list[Hit], confidence: float, mode: str) -> KbReply:
     return KbReply(text="\n\n".join(parts), kind="kb_extract", sources=[_source(h) for h in used], confidence=confidence, mode=mode)
 
 
+def answer_model() -> str | None:
+    """GIGACHAT_ANSWER_MODEL: the model that writes knowledge base answers (default — GIGACHAT_MODEL)."""
+    return (os.environ.get("GIGACHAT_ANSWER_MODEL") or "").strip() or None
+
+
 async def answer_from_kb(question: str, retriever: Retriever, gigachat, database, *, names: list[str] = (),
-                         thresholds: dict | None = None, handoff_text: str | None = None) -> KbReply:
+                         thresholds: dict | None = None, handoff_text: str | None = None, model: str | None = None) -> KbReply:
     started = time.perf_counter()
     masked = mask_question(question, names)
-    result = await retriever.search(masked, k=5)
+    expansion = await rewrite_query(gigachat, masked)
+    result = await retriever.search(masked, k=5, expansion=expansion)
     confidence = (result.top_cosine if result.top_cosine is not None else result.top_bm25) if result.hits else 0.0
     if not is_confident(result, thresholds):
         top = result.hits[0] if result.hits else None
@@ -113,15 +166,18 @@ async def answer_from_kb(question: str, retriever: Retriever, gigachat, database
     reply: KbReply | None = None
     reason = "no_gigachat"
     if gigachat is not None:
-        by_id = {str(h.fragment.id): h for h in hits}
-        user = prompts.user_message(masked, [(str(h.fragment.id), h.fragment.text, h.fragment.priority) for h in hits])
+        # Short labels S1…S5 instead of UUIDs: GigaChat-2-Max returned empty strings for long ids
+        # in used_sources (kb-eval --answers, 17.11.2026). The server maps labels back to fragments.
+        by_id = {f"S{n}": h for n, h in enumerate(hits, start=1)}
+        user = prompts.user_message(masked, [(label, h.fragment.text, h.fragment.priority) for label, h in by_id.items()])
         try:
             answer = await asyncio.wait_for(
-                gigachat.chat_json(prompts.SYSTEM, user, prompts.SCHEMA, name="answer", temperature=0.1, max_tokens=700),
+                gigachat.chat_json(prompts.SYSTEM, user, answer_schema(list(by_id)), name="answer", temperature=0.1, max_tokens=700,
+                                   model=model or answer_model()),
                 timeout=TIMEOUT)
             data = answer.data if isinstance(answer.data, dict) else {}
             text = data.get("answer") if isinstance(data.get("answer"), str) else ""
-            used = [str(x) for x in data.get("used_sources") or [] if isinstance(x, (str, int))]
+            used = normalize_labels(data.get("used_sources"))
             if data.get("answerable") is False:
                 reason = "model_not_answerable"
             else:

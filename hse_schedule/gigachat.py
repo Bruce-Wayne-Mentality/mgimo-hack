@@ -136,9 +136,13 @@ class GigaChat:
         return result
 
     async def chat_json(self, system: str, user: str, schema: dict, *, name: str = "verdict",
-                        temperature: float = 0.1, max_tokens: int = 600) -> ChatResult:
-        """One structured-output call. Falls back to a forced function call if json_schema is refused."""
-        return await self._guarded(lambda: self._call(system, user, schema, name, temperature, max_tokens))
+                        temperature: float = 0.1, max_tokens: int = 600, model: str | None = None) -> ChatResult:
+        """One structured-output call. Falls back to a forced function call if json_schema is refused.
+
+        model overrides GIGACHAT_MODEL for this call (the assistant may answer with another model
+        than the red button uses); the token, the single stream and the breaker stay shared.
+        """
+        return await self._guarded(lambda: self._call(system, user, schema, name, temperature, max_tokens, model))
 
     async def embed(self, texts: list[str], model: str | None = None) -> list[list[float]]:
         """Vectors for texts in the original order (RAG knowledge base and search queries).
@@ -189,9 +193,9 @@ class GigaChat:
                 return vectors
         raise GigaChatUnavailable("no answer")
 
-    async def _call(self, system, user, schema, name, temperature, max_tokens) -> ChatResult:
+    async def _call(self, system, user, schema, name, temperature, max_tokens, model=None) -> ChatResult:
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-        body = {"model": self.model, "temperature": temperature, "max_tokens": max_tokens, "messages": messages,
+        body = {"model": model or self.model, "temperature": temperature, "max_tokens": max_tokens, "messages": messages,
                 "response_format": {"type": "json_schema", "schema": schema, "strict": True}}
         started = time.perf_counter()
         async with self._client() as client:
@@ -235,7 +239,7 @@ class GigaChat:
                 except (TypeError, ValueError):
                     raise GigaChatInvalid("not json") from None
                 return ChatResult(data=data, latency_ms=int((time.perf_counter() - started) * 1000),
-                                  tokens=int(payload.get("usage", {}).get("total_tokens", 0)), model=self.model)
+                                  tokens=int(payload.get("usage", {}).get("total_tokens", 0)), model=model or self.model)
         raise GigaChatUnavailable("no answer")
 
     async def rephrase(self, question: str, grounded: str) -> str | None:

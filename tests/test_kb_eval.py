@@ -15,7 +15,7 @@ from pathlib import Path
 
 from hse_schedule.assistant.kb import evaluation
 from hse_schedule.assistant.kb.ingest import ingest_manifest
-from hse_schedule.assistant.kb.retriever import Retriever, load_thresholds
+from hse_schedule.assistant.kb.retriever import Retriever, is_confident, load_thresholds
 from hse_schedule.db import Database
 from hse_schedule.migrate import upgrade
 
@@ -28,7 +28,7 @@ class RetrievalRegressionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temporary = Path(tempfile.mkdtemp())
-        url = f"sqlite:///{(cls.temporary / 'eval.sqlite3').as_posix()}"
+        url = cls.url = f"sqlite:///{(cls.temporary / 'eval.sqlite3').as_posix()}"
         upgrade(url)
 
         async def run():
@@ -46,6 +46,32 @@ class RetrievalRegressionTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.temporary, ignore_errors=True)
+
+    def test_answer_check_compares_numbers_not_word_forms(self):
+        self.assertTrue(evaluation.answer_ok("ГАС — 5400 рублей в месяц", {"must_contain": ["5400 руб."]}))
+        self.assertFalse(evaluation.answer_ok("ГАС — 15400 рублей", {"must_contain": ["5400 руб."]}))
+        self.assertTrue(evaluation.answer_ok("нужна «декларация об использовании ИИ»", {"must_contain": ["Декларация об использовании ИИ"]}))
+        self.assertFalse(evaluation.answer_ok("нужна справка", {"must_contain": ["086/у"]}))
+        # word forms count, missing facts do not; numbers written as words do not count
+        self.assertTrue(evaluation.answer_ok("укажите в декларации об использовании ИИ", {"must_contain": ["Декларация об использовании ИИ"]}))
+        self.assertFalse(evaluation.answer_ok("не более двух раз", {"must_contain": ["не более двух раз", "комиссией"]}))
+        self.assertFalse(evaluation.answer_ok("с первого числа", {"must_contain": ["с 1 числа месяца"]}))
+
+    def test_live_paraphrase_with_its_recorded_rewrite_is_answered(self):
+        """Refused live on 17.11.2026 before the fix; the expansion is the one GigaChat returned then."""
+        async def run():
+            database = Database(self.url, pooled=False)
+            retriever = Retriever(None)
+            await retriever.reload(database)
+            result = await retriever.search("Можно ли пользоваться нейросетями в курсовой?", k=5,
+                                            expansion="генеративные инструменты искусственный интеллект нейроассистенты умные помощники")
+            expanded = retriever.expand_references(result.hits)
+            await database.dispose()
+            return result, expanded
+
+        result, expanded = asyncio.run(run())
+        self.assertTrue(is_confident(result, load_thresholds()))
+        self.assertIn(("07", "Раздел 5 › п. 5.2"), {(h.fragment.doc_id, h.fragment.section_path) for h in expanded})
 
     def test_hit_at_5_does_not_drop(self):
         self.assertGreaterEqual(self.metrics["hit@5"], 0.83)

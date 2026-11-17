@@ -13,6 +13,7 @@ from ..accounts.router import ApiError
 from ..accounts.service import CurrentSession
 from .catalog import display_payload
 from .models import StudentRequest
+from ..attachments.requests import attachment_payload, request_attachment_url
 from .service import (
     CLOSED_STATUSES,
     STAFF_CLOCK_STATUSES,
@@ -35,8 +36,9 @@ class CreateBody(BaseModel):
 
 class CommentBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    body: StrictStr = Field(min_length=1, max_length=2000)
+    body: StrictStr = Field(default="", max_length=2000)
     internal: StrictBool = False
+    attachment_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
 
 
 class TransitionBody(BaseModel):
@@ -101,6 +103,7 @@ def detail_payload(request: StudentRequest, *, staff: bool, viewer_id: uuid.UUID
                 else comment.author.display_name if staff else "Вы"
             ),
             "from_staff": comment.author is not None and comment.author.role != "student",
+            "attachments": [attachment_payload(a, request_attachment_url(request.id, a.id)) for a in comment.attachments],
         }
         for comment in request.comments
         if staff or not comment.internal
@@ -194,7 +197,8 @@ def register_request_routes(app: FastAPI, service: RequestService) -> None:
     @app.post("/api/requests/{request_id}/comments", tags=["requests"])
     async def comment_request(request_id: str, body: CommentBody, current: CurrentSession = Depends(require_session)) -> dict:
         try:
-            request = await service.comment(current.user, parse_id(request_id), body.body, internal=body.internal)
+            request = await service.comment(current.user, parse_id(request_id), body.body, internal=body.internal,
+                                            attachment_ids=body.attachment_ids)
         except RequestError as error:
             fail(error)
         staff = current.user.role != "student"

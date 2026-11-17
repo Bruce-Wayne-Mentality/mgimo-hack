@@ -25,6 +25,13 @@ dependencies = [
     "tzdata>=2024.1; sys_platform == 'win32'",
 ]
 
+[project.optional-dependencies]
+# Only for building the RAG knowledge base (kb-build); the app runs without them.
+kb = [
+    "pdfplumber>=0.11,<1",
+    "beautifulsoup4>=4.12,<5",
+]
+
 [project.scripts]
 hse-schedule = "hse_schedule.cli:main"
 

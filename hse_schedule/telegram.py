@@ -116,10 +116,13 @@ class TelegramBot:
             pass  # already gone or older than 48 hours: nothing to clean
 
     def _drop_reply_keyboard(self, chat_id: int | str) -> None:
-        """The earlier version had a reply keyboard under the input; tabs now live under the panel."""
+        """The earlier version had a reply keyboard under the input; tabs now live under the panel.
+
+        The message carrying remove_keyboard must stay: Telegram clients bring the old keyboard
+        back when that message is deleted (seen live in Telegram Web).
+        """
         try:
-            message_id = self.reply(chat_id, "…", markup={"remove_keyboard": True})
-            self._delete(chat_id, message_id)
+            self.reply(chat_id, "Кнопки теперь под сообщением бота 👇", markup={"remove_keyboard": True})
         except ChannelDeliveryError:
             pass
 
@@ -226,8 +229,7 @@ class TelegramBot:
                 self.reply(chat_id, commands.EXPIRED)
                 return
             # The binding is already committed; a failed reply below must not replay the consumed token.
-            self.reply(chat_id, "Telegram привязан ✅")
-            self._drop_reply_keyboard(chat_id)
+            self.reply(chat_id, "Telegram привязан ✅", markup={"remove_keyboard": True})
             text_, markup = self._view(store, email, "home", now, schedule)
             self._new_panel(store, chat_id, text_, markup)
             return
@@ -248,8 +250,8 @@ class TelegramBot:
             if minutes is not None:
                 store.set_telegram_timer(email, minutes)
                 tab = "timer"
-        if text.strip().split()[0].split("@")[0].lower() == "/start":
-            self._drop_reply_keyboard(chat_id)
+        if store.telegram_panel(str(chat_id)) is None:
+            self._drop_reply_keyboard(chat_id)  # a chat from the earlier version: once, before its first panel
         text_, markup = self._view(store, email, tab or "home", now, schedule)
         self._new_panel(store, chat_id, text_, markup)
 

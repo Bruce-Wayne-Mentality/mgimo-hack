@@ -152,6 +152,14 @@ class BotTests(unittest.TestCase):
         self.assertIn("Группа: ЭК-25-1", last["text"])
         self.assertIsNotNone(panel)
 
+    def test_old_reply_keyboard_is_removed_and_the_message_kept(self):
+        """Found live: deleting the message that removes the keyboard brings the keyboard back."""
+        self.link()
+        confirm = next((i, b) for i, (m, b) in enumerate(self.calls) if m == "sendMessage" and b["text"] == "Telegram привязан ✅")
+        self.assertEqual(confirm[1]["reply_markup"], {"remove_keyboard": True})
+        deleted = {b["message_id"] for m, b in self.calls if m == "deleteMessage"}
+        self.assertNotIn(101, deleted)  # the confirmation (first sent message) stays
+
     def test_tabs_rewrite_the_same_message(self):
         panel = self.link()
         calls = self.press("tab:tomorrow", panel)

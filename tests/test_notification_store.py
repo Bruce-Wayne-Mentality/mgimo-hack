@@ -54,7 +54,7 @@ class NotificationStoreTests(unittest.TestCase):
         self.store.add_subscription(ALICE, subscription("one"), NOW)
         self.store.add_subscription(ALICE, subscription("two"), NOW)
         self.link_telegram()
-        self.publish()
+        self.publish(notifications=[draft(kind="changed")])
         deliveries = self.store.claim_deliveries(NOW)
         self.assertEqual(len(deliveries), 3)
         self.assertEqual(sorted(d["channel"] for d in deliveries), ["telegram", "webpush", "webpush"])
@@ -107,12 +107,20 @@ class NotificationStoreTests(unittest.TestCase):
         self.assertEqual(self.store.list_notifications(ALICE)["unread_count"], 1)
         self.assertEqual(len(self.store.claim_deliveries(NOW)), 1)
 
+    def test_built_in_reminders_do_not_go_to_telegram(self):
+        """In Telegram the user sets the lesson timer; it is off by default."""
+        self.store.set_settings(ALICE, True)
+        self.store.add_subscription(ALICE, subscription("one"), NOW)
+        self.link_telegram()
+        self.publish(notifications=[draft(kind="reminder")])
+        self.assertEqual([d["channel"] for d in self.store.claim_deliveries(NOW)], ["webpush"])
+
     def test_restart_preserves_all_account_state(self):
         self.store.set_settings(ALICE, True)
         self.store.add_subscription(ALICE, subscription(), NOW)
         self.link_telegram()
         self.store.commit_observation(ALICE, None, start=NOW.date(), finish=NOW.date(),
-                                      lessons=[{"id": "one"}], notifications=[draft()], now=NOW)
+                                      lessons=[{"id": "one"}], notifications=[draft(kind="changed")], now=NOW)
         self.store.mark_read(ALICE, 1, NOW)
         self.store.close()
         self.store = NotificationStore(self.path)

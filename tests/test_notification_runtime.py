@@ -24,7 +24,7 @@ SUBSCRIPTION = {
 
 def draft(key="event", *, expires_at=None):
     return {
-        "kind": "reminder", "event_key": key,
+        "kind": "changed", "event_key": key,
         "title": "Скоро начнётся пара", "body": "Математика, аудитория 101",
         "payload": {"lesson": {"starts_at": (NOW + timedelta(minutes=10)).isoformat()}},
         "expires_at": expires_at,

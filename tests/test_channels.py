@@ -197,6 +197,9 @@ class TelegramTests(unittest.TestCase):
         store = Mock()
         store.consume_telegram_link.return_value = "student@example.test"
         store.telegram_email.return_value = None  # the chat is not linked yet
+        store.list_notifications.return_value = {"items": [], "unread_count": 0}
+        store.telegram_timer.return_value = None
+        store.telegram_panel.return_value = None
         now = datetime(2026, 11, 12, tzinfo=timezone.utc)
         bot = self.bot(handler)
         bot.poll_once(store, now)
@@ -204,11 +207,11 @@ class TelegramTests(unittest.TestCase):
         store.consume_telegram_link.assert_called_once_with(token, "12345", "example_user", now)
         self.assertEqual(requests_seen[-1][1]["offset"], 5)
         sent = [body["text"] for name, body in requests_seen if name == "sendMessage"]
-        # one confirmation for the real link; the plain text from the same private chat gets instructions;
-        # the group message and the message from another user get nothing
+        # one confirmation and the home panel for the real link; the plain text from the same private chat
+        # gets instructions; the group message and the message from another user get nothing
         self.assertEqual(sum("Telegram привязан" in text for text in sent), 1)
-        self.assertEqual(len(sent), 2)
-        self.assertTrue(any("не привязан" in text for text in sent))
+        self.assertEqual(sum("не привязан" in text for text in sent), 1)
+        self.assertEqual(sum("Здравствуйте" in text for text in sent), 1)
 
     def test_invalid_or_expired_link_does_not_send_confirmation(self):
         sent = []

@@ -135,7 +135,13 @@ class NotificationRuntime:
                 set_menu()
             except Exception:
                 pass  # the menu is cosmetic: the next tick tries again
-        self.telegram_bot.poll_once(self.engine.store, datetime.now(timezone.utc), getattr(self.engine, "service", None))
+        schedule = getattr(self.engine, "service", None)
+        now = datetime.now(timezone.utc)
+        self.telegram_bot.poll_once(self.engine.store, now, schedule)
+        send_reminders = getattr(self.telegram_bot, "send_reminders", None)
+        if send_reminders is not None and now.timestamp() - getattr(self, "_reminders_at", 0.0) >= 30:
+            self._reminders_at = now.timestamp()  # every 30 s is enough for «за N минут»
+            send_reminders(self.engine.store, now, schedule)
 
     def stop(self) -> None:
         self._stop.set()

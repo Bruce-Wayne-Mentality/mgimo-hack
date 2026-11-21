@@ -73,6 +73,16 @@ class NotificationStore:
             );
             CREATE INDEX IF NOT EXISTS delivery_due
                 ON notification_deliveries(state, next_attempt_at, lease_until);
+            CREATE TABLE IF NOT EXISTS telegram_panels (
+                chat_id TEXT PRIMARY KEY, message_id INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS telegram_timers (
+                email TEXT PRIMARY KEY, minutes INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS telegram_timer_sent (
+                chat_id TEXT NOT NULL, lesson_key TEXT NOT NULL, minutes INTEGER NOT NULL, sent_at TEXT NOT NULL,
+                PRIMARY KEY (chat_id, lesson_key, minutes)
+            );
         """)
         self._db.commit()
         if path != ":memory:":
@@ -224,6 +234,47 @@ class NotificationStore:
             row = self._db.execute("SELECT email FROM telegram_bindings WHERE chat_id=?", (str(chat_id),)).fetchone()
         return row["email"] if row else None
 
+    # ---- Telegram panel and lesson timer ------------------------------------------------
+
+    def telegram_panel(self, chat_id: str) -> int | None:
+        with self._lock:
+            row = self._db.execute("SELECT message_id FROM telegram_panels WHERE chat_id=?", (str(chat_id),)).fetchone()
+        return row["message_id"] if row else None
+
+    def set_telegram_panel(self, chat_id: str, message_id: int | None) -> None:
+        with self._transaction() as db:
+            db.execute("DELETE FROM telegram_panels WHERE chat_id=?", (str(chat_id),))
+            if message_id is not None:
+                db.execute("INSERT INTO telegram_panels VALUES (?, ?)", (str(chat_id), int(message_id)))
+
+    def telegram_timer(self, email: str) -> int | None:
+        """Minutes before a lesson for the Telegram reminder; None — off (the default)."""
+        with self._lock:
+            row = self._db.execute("SELECT minutes FROM telegram_timers WHERE email=?", (email,)).fetchone()
+        return row["minutes"] if row else None
+
+    def set_telegram_timer(self, email: str, minutes: int | None) -> None:
+        with self._transaction() as db:
+            db.execute("DELETE FROM telegram_timers WHERE email=?", (email,))
+            if minutes:
+                db.execute("INSERT INTO telegram_timers VALUES (?, ?)", (email, int(minutes)))
+
+    def telegram_timers(self) -> list[tuple[str, str, int]]:
+        """(email, chat_id, minutes) of linked chats with a timer on."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT t.email, b.chat_id, t.minutes FROM telegram_timers t JOIN telegram_bindings b ON b.email = t.email"
+            ).fetchall()
+        return [(row["email"], row["chat_id"], row["minutes"]) for row in rows]
+
+    def claim_telegram_reminder(self, chat_id: str, lesson_key: str, minutes: int, now: datetime) -> bool:
+        """True once per chat, lesson and timer value — the reminder is never sent twice."""
+        with self._transaction() as db:
+            db.execute("DELETE FROM telegram_timer_sent WHERE sent_at < ?", (_stamp(now - timedelta(days=2)),))
+            cursor = db.execute("INSERT OR IGNORE INTO telegram_timer_sent VALUES (?, ?, ?, ?)",
+                                (str(chat_id), lesson_key, int(minutes), _stamp(now)))
+            return cursor.rowcount == 1
+
     def create_telegram_link(self, email: str, token: str, expires: datetime) -> None:
         digest = hashlib.sha256(token.encode()).hexdigest()
         with self._transaction() as db:
@@ -355,7 +406,7 @@ class NotificationStore:
                 for target in db.execute("SELECT * FROM push_subscriptions WHERE email=?", (email,))
             ]
             telegram = db.execute("SELECT chat_id FROM telegram_bindings WHERE email=?", (email,)).fetchone()
-            if telegram:
+            if telegram and draft["kind"] != "reminder":
                 targets.append(("telegram", telegram[0], {"chat_id": telegram[0]}))
             for channel, target_key, target in targets:
                 db.execute(

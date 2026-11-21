@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from . import telegram_commands as commands
 from .push import ChannelDeliveryError
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class TelegramBot:
         self._username = username
         self._transport = transport
         self._offset = 0
+        self._menu_set = False
         logging.getLogger("httpx").addFilter(_TokenLogFilter(token))
 
     def _call(self, method: str, payload: dict) -> object:
@@ -95,7 +97,25 @@ class TelegramBot:
             {"chat_id": chat_id, "text": text, "link_preview_options": {"is_disabled": True}},
         )
 
-    def poll_once(self, store: NotificationStore, now: datetime) -> None:
+    def reply(self, chat_id: int | str, text: str, *, keyboard: bool = True) -> None:
+        payload = {"chat_id": str(chat_id), "text": text[:4096], "link_preview_options": {"is_disabled": True}}
+        if keyboard:
+            payload["reply_markup"] = commands.KEYBOARD
+        self._call("sendMessage", payload)
+
+    def set_menu(self) -> None:
+        """The command list in Telegram's menu; set once per process, failures are retried later."""
+        if self._menu_set:
+            return
+        self._call("setMyCommands", {"commands": commands.COMMANDS, "language_code": "ru"})
+        self._call("setMyCommands", {"commands": commands.COMMANDS})
+        self._call("setMyDescription", {"description": (
+            "Бот «Цифрового деканата» (учебный концепт): расписание и уведомления о переносах и отменах пар. "
+            "Привяжите аккаунт в личном кабинете → «Уведомления».")})
+        self._call("setMyShortDescription", {"short_description": "Расписание и уведомления «Цифрового деканата» (концепт)."})
+        self._menu_set = True
+
+    def poll_once(self, store: NotificationStore, now: datetime, schedule=None) -> None:
         """Consume private /start links; no username or arbitrary message can bind.
 
         The database validates expiry and consumes the nonce atomically. Polling
@@ -127,6 +147,7 @@ class TelegramBot:
                 continue
             command = re.fullmatch(r"/start(?:@[A-Za-z0-9_]+)? ([A-Za-z0-9_-]{16,64})", text.strip())
             if not command:
+                self._answer(store, chat_id, text, now, schedule)
                 continue
             username = sender.get("username")
             if not isinstance(username, str) or not re.fullmatch(r"[A-Za-z0-9_]{5,32}", username):
@@ -134,11 +155,27 @@ class TelegramBot:
             email = store.consume_telegram_link(command.group(1), str(chat_id), username, now)
             if email is not None:
                 try:
-                    self.send(
-                        {"chat_id": str(chat_id)},
-                        {"title": "Telegram привязан", "body": "Настройки уведомлений доступны в личном кабинете."},
-                    )
+                    self.reply(chat_id, commands.LINKED)
                 except ChannelDeliveryError:
                     # The binding is already committed; a failed confirmation
                     # must not replay its consumed linking token.
                     pass
+            else:
+                try:
+                    self.reply(chat_id, commands.EXPIRED, keyboard=False)
+                except ChannelDeliveryError:
+                    pass
+
+    def _answer(self, store: NotificationStore, chat_id: int, text: str, now: datetime, schedule) -> None:
+        """Commands of a linked chat; an unlinked chat only gets instructions how to link."""
+        email = store.telegram_email(str(chat_id))
+        try:
+            if not isinstance(email, str):
+                self.reply(chat_id, commands.NOT_LINKED, keyboard=False)
+                return
+            command = commands.command_of(text)
+            reply = commands.answer(command, email=email, schedule=schedule, store=store, now=now,
+                                    unlink=lambda: store.unlink_telegram_target(email, str(chat_id)))
+            self.reply(chat_id, reply, keyboard=command != "/unlink")
+        except ChannelDeliveryError:
+            pass  # a reply that did not go through is not retried: the user can ask again

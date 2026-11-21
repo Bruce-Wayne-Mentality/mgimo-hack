@@ -181,7 +181,7 @@ class RuntimeTests(unittest.TestCase):
         )
         dispatcher = SimpleNamespace(drain=deliveries.set)
 
-        def poll(store, now):
+        def poll(store, now, schedule=None):
             self.assertIs(store, engine.store)
             self.assertIsNotNone(now.utcoffset())
             bot_updates.set()

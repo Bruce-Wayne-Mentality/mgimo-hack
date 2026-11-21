@@ -196,17 +196,27 @@ class TelegramTests(unittest.TestCase):
             return httpx.Response(200, json={"ok": True, "result": {"message_id": 1}})
         store = Mock()
         store.consume_telegram_link.return_value = "student@example.test"
+        store.telegram_email.return_value = None  # the chat is not linked yet
         now = datetime(2026, 11, 12, tzinfo=timezone.utc)
         bot = self.bot(handler)
         bot.poll_once(store, now)
         bot.poll_once(store, now)
         store.consume_telegram_link.assert_called_once_with(token, "12345", "example_user", now)
         self.assertEqual(requests_seen[-1][1]["offset"], 5)
-        self.assertEqual([name for name, _ in requests_seen].count("sendMessage"), 1)
+        sent = [body["text"] for name, body in requests_seen if name == "sendMessage"]
+        # one confirmation for the real link; the plain text from the same private chat gets instructions;
+        # the group message and the message from another user get nothing
+        self.assertEqual(sum("Telegram привязан" in text for text in sent), 1)
+        self.assertEqual(len(sent), 2)
+        self.assertTrue(any("не привязан" in text for text in sent))
 
     def test_invalid_or_expired_link_does_not_send_confirmation(self):
+        sent = []
+
         def handler(request):
-            self.assertTrue(request.url.path.endswith("/getUpdates"))
+            if request.url.path.endswith("/sendMessage"):
+                sent.append(json.loads(request.content)["text"])
+                return httpx.Response(200, json={"ok": True, "result": {"message_id": 1}})
             return httpx.Response(200, json={"ok": True, "result": [{"update_id": 1, "message": {
                 "chat": {"type": "private", "id": 12345}, "from": {"id": 12345},
                 "text": "/start expired_single_use_nonce_1234",
@@ -215,6 +225,9 @@ class TelegramTests(unittest.TestCase):
         store.consume_telegram_link.return_value = None
         self.bot(handler).poll_once(store, datetime.now(timezone.utc))
         self.assertEqual(store.consume_telegram_link.call_count, 1)
+        self.assertEqual(len(sent), 1)
+        self.assertNotIn("привязан ✅", sent[0])  # no confirmation, only how to get a new link
+        self.assertIn("одноразовая", sent[0])
 
 
 if __name__ == "__main__":

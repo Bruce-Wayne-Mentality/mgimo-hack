@@ -119,7 +119,7 @@ class NotificationRuntime:
         ]
         if self.telegram_bot is not None:
             callbacks.append((
-                lambda: self.telegram_bot.poll_once(self.engine.store, datetime.now(timezone.utc)),
+                lambda: self._telegram_tick(),
                 self.telegram_interval,
                 "telegram-linking",
             ))
@@ -127,6 +127,15 @@ class NotificationRuntime:
             thread = threading.Thread(target=self._loop, args=(callback, interval), name=name, daemon=True)
             self._threads.append(thread)
             thread.start()
+
+    def _telegram_tick(self) -> None:
+        set_menu = getattr(self.telegram_bot, "set_menu", None)
+        if set_menu is not None:
+            try:
+                set_menu()
+            except Exception:
+                pass  # the menu is cosmetic: the next tick tries again
+        self.telegram_bot.poll_once(self.engine.store, datetime.now(timezone.utc), getattr(self.engine, "service", None))
 
     def stop(self) -> None:
         self._stop.set()

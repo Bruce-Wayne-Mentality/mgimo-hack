@@ -218,6 +218,12 @@ class NotificationStore:
             ).fetchone()
         return {"linked": row is not None, "username": row["username"] if row else None}
 
+    def telegram_email(self, chat_id: str) -> str | None:
+        """The account a private chat is bound to (only through a one-time link)."""
+        with self._lock:
+            row = self._db.execute("SELECT email FROM telegram_bindings WHERE chat_id=?", (str(chat_id),)).fetchone()
+        return row["email"] if row else None
+
     def create_telegram_link(self, email: str, token: str, expires: datetime) -> None:
         digest = hashlib.sha256(token.encode()).hexdigest()
         with self._transaction() as db:

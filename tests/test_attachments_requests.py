@@ -112,6 +112,22 @@ class RequestAttachmentTests(FeatureTestCase):
         self.assertTrue(names)
         self.assertFalse(any("секрет" in n or n.endswith(".png") for n in names))
 
+    def test_demo_reset_removes_attachment_files(self):
+        """Found live: the reset deleted the rows but left the files on disk."""
+        rid = self.open_request()
+        anna = self.client(ANNA)
+        sent = self.upload(anna, rid, samples.png(), "скан.png").json()
+        anna.post(f"/api/requests/{rid}/comments", json={"body": "", "attachment_ids": [sent["id"]]})
+        self.upload(anna, rid, samples.pdf("Draft"), "черновик.pdf")  # staged, never sent
+        foreign = Path(self._files) / "README.txt"
+        foreign.write_text("not ours")
+        ours = [p for p in Path(self._files).iterdir() if p.name != "README.txt"]
+        self.assertGreaterEqual(len(ours), 2)
+        reset = self.client(ADMIN).post("/api/admin/demo-reset")
+        self.assertEqual(reset.status_code, 200, reset.text)
+        self.assertEqual([p.name for p in Path(self._files).iterdir()], ["README.txt"])  # only our files went
+        self._clients.clear()  # sessions were wiped by the reset
+
     def test_csrf_is_required(self):
         rid = self.open_request()
         anna = self.client(ANNA)

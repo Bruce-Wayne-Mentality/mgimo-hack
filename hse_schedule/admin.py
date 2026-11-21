@@ -24,6 +24,29 @@ ACTION_LABELS = {
 }
 
 
+def _remove_attachment_files() -> int:
+    """After the reset no row points to any attachment, so every stored file is an orphan.
+
+    Only our own uuid-named files (and unfinished .tmp writes) are removed; anything else
+    in the directory is left alone.
+    """
+    import uuid
+
+    from .attachments.files import storage_dir
+
+    removed = 0
+    for path in storage_dir().iterdir():
+        name = path.name.removesuffix(".tmp")
+        try:
+            uuid.UUID(name)
+        except ValueError:
+            continue
+        if path.is_file():
+            path.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
 async def reset_demo_data(database: Database, store, reseed, *, by: str) -> dict:
     """Wipe every application table and seed the demo again (sessions included).
 
@@ -43,6 +66,7 @@ async def reset_demo_data(database: Database, store, reseed, *, by: str) -> dict
             if table.name not in keep:
                 await db.execute(delete(table))
         await db.commit()
+    _remove_attachment_files()
     if store is not None:
         store.reset_feed()
     created = await reseed(database)
